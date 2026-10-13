@@ -1,8 +1,25 @@
 # FrameNote — Avanzamento
 
 ## Stato attuale
-- **Milestone in corso:** M0 — CI verde su `main`, .dmg e .msi prodotti; manca la release `v0.0.1` firmata e la prova di Domenico
-- **Ultima build provata da Domenico:** nessuna
+- **Milestone completata:** M0 ✅ (verificata da Domenico il 2026-10-13)
+- **Prossima milestone:** M1 — spike zoom (da pianificare in plan mode e far approvare)
+- **Ultima build provata da Domenico:** `v0.0.1` (commit `b91e98a`), macOS 26.6.2, MacBook M1 Pro
+
+## 2026-10-13 — Chiusura di M0: prova di Domenico
+**Verificato da Domenico su macOS 26.6.2 (M1 Pro, 16 GB)**
+- Release `v0.0.1` scaricata, installata da `.dmg`, aperta dopo "Open Anyway" in Privacy & Security (Gatekeeper, come previsto dal README).
+- "Info e diagnostica": encoder preferito `h264_videotoolbox` **hardware**; prova di codifica reale riuscita per `h264_videotoolbox` (251 ms) e `hevc_videotoolbox` (198 ms); GPU **Apple M1 Pro (Metal, integrata)**; FFmpeg 8.1.2 LGPL; database ok (schema v1); FTS5 disponibile.
+- **Criterio di uscita di M0 soddisfatto:** l'app si apre e la diagnostica mostra encoder e GPU rilevati.
+
+**Verificato in CI (run Build #3, release `v0.0.1`)**
+- `.dmg` firmato con il certificato stabile. Requisito designato da confrontare nelle build future (deve restare identico, altrimenti macOS ritira i permessi):
+  `identifier "com.mimmo8bit.framenote" and certificate leaf = H"21823567a97f4321ad26c27b50832eeb3c91ef2d"`
+- `.msi` Windows prodotto; non ancora provato su una macchina Windows (previsto in M9).
+
+**Note per le prossime milestone**
+- Su macOS in inglese i pulsanti sono "Done" e "Open Anyway"; il README li riporta in italiano: da allineare quando si aggiorna il README.
+- Il sistema compare come "Darwin macOS 26.6.2 Tahoe": dettaglio estetico della diagnostica.
+- "Esporta diagnostica" non è ancora stato provato sul Mac.
 
 ## 2026-10-13 — Sessione 1, seconda parte: CI reale
 **Fatto e verificato su GitHub Actions**
@@ -14,8 +31,8 @@
 **Problemi aperti**
 - Il push del tag `v0.0.1` dalla sessione cloud è rifiutato (403). Aggiunta l'opzione "Pubblica" a `build.yml` (vedi `DECISIONS.md`).
 
-**Prossimo passo**
-- Unire la PR con l'opzione "Pubblica", lanciare Build su `main` con Pubblica attivo, verificare nel log la firma con il certificato, poi prova di Domenico.
+**Risolto**
+- PR mimmo8bit/FRAME.NOTE#2 unita; release `v0.0.1` pubblicata con Build avviato a mano ("Pubblica").
 
 ## 2026-10-13 — Sessione 1 (cloud): implementazione di M0
 **Fatto**
