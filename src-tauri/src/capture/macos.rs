@@ -28,7 +28,8 @@ use super::pacer::Pacer;
 use super::{CaptureSupport, RecordingReport, CAPTURE_FPS};
 use crate::encoder::pipe::capture_encoder_args;
 use crate::input_events::{
-    macos as mouse, ButtonTracker, DisplayGeometry, EventKind, EventWriter, InputEvent, EVENTS_FILE,
+    macos as mouse, point_in_rects, ButtonTracker, DisplayGeometry, EventKind, EventWriter,
+    InputEvent, Rect, EVENTS_FILE,
 };
 
 #[link(name = "CoreGraphics", kind = "framework")]
