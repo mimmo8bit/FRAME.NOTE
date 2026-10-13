@@ -4,9 +4,10 @@ import { api } from "../lib/api";
 
 interface Props {
   onOpenDiagnostics: () => void;
+  onOpenZoomTest: () => void;
 }
 
-export default function Home({ onOpenDiagnostics }: Props) {
+export default function Home({ onOpenDiagnostics, onOpenZoomTest }: Props) {
   const [version, setVersion] = useState<string | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
 
@@ -47,15 +48,29 @@ export default function Home({ onOpenDiagnostics }: Props) {
       )}
 
       <section className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-700">
-        <h2 className="font-medium">Prima versione di prova</h2>
+        <h2 className="font-medium">Prova zoom (M1)</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          La registrazione arriva nelle prossime versioni. Per ora puoi controllare che FrameNote
-          veda correttamente il tuo Mac: encoder video, GPU, cartelle e database.
+          Registra lo schermo per qualche secondo e fai qualche clic: FrameNote crea un video con zoom
+          automatici e cursore smussato.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenZoomTest}
+          className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+        >
+          Prova zoom
+        </button>
+      </section>
+
+      <section className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-700">
+        <h2 className="font-medium">Info e diagnostica</h2>
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+          Encoder video, GPU, cartelle e database: utile da allegare in chat se qualcosa non va.
         </p>
         <button
           type="button"
           onClick={onOpenDiagnostics}
-          className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+          className="mt-4 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800"
         >
           Info e diagnostica
         </button>

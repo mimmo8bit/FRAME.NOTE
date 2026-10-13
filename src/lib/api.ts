@@ -73,11 +73,83 @@ export interface ExportResult {
   entries: string[];
 }
 
+export interface CaptureStatus {
+  supported: boolean;
+  permissionGranted: boolean;
+  message: string | null;
+  recording: boolean;
+}
+
+export interface RecordingStatus {
+  recording: boolean;
+  elapsedMs: number;
+  frames: number;
+  clicks: number;
+  dropped: number;
+  error: string | null;
+}
+
+export interface ZoomBlock {
+  startMs: number;
+  endMs: number;
+  scale: number;
+  centerX: number;
+  centerY: number;
+  clicks: number;
+}
+
+export interface RecordingReport {
+  durationMs: number;
+  framesReceived: number;
+  framesIdle: number;
+  framesDropped: number;
+  framesWritten: number;
+  framesRepeated: number;
+  mouseEvents: number;
+  clicks: number;
+  cpuAvgPercent: number;
+  cpuMaxPercent: number;
+  cpuAvgTotalPercent: number;
+  encoder: string;
+}
+
+export interface RecordingSummary {
+  projectDir: string;
+  durationMs: number;
+  width: number;
+  height: number;
+  clicks: number;
+  zoomBlocks: ZoomBlock[];
+  report: RecordingReport;
+}
+
+export interface ExportSummary {
+  output: string;
+  width: number;
+  height: number;
+  frames: number;
+  renderMs: number;
+}
+
+export interface ExportProgress {
+  done: number;
+  total: number;
+}
+
 export const api = {
   diagnosticInfo: () => invoke<DiagnosticInfo>("diagnostic_info"),
   startupProblems: () => invoke<string[]>("startup_problems"),
   defaultDiagnosticsFileName: () => invoke<string>("default_diagnostics_file_name"),
   exportDiagnostics: (dest: string) => invoke<ExportResult>("export_diagnostics", { dest }),
+  captureStatus: () => invoke<CaptureStatus>("capture_status"),
+  requestScreenPermission: () => invoke<boolean>("request_screen_permission"),
+  openScreenPermissionSettings: () => invoke<void>("open_screen_permission_settings"),
+  startRecording: () => invoke<{ projectDir: string }>("start_recording"),
+  recordingStatus: () => invoke<RecordingStatus>("recording_status"),
+  stopRecording: () => invoke<RecordingSummary>("stop_recording"),
+  exportZoom: (projectDir: string) => invoke<ExportSummary>("export_zoom", { projectDir }),
+  cancelExport: () => invoke<void>("cancel_export"),
+  openProjectFile: (path: string) => invoke<void>("open_project_file", { path }),
   log: (level: "info" | "warn" | "error", message: string) =>
     invoke<void>("log_frontend", { level, message }).catch(() => {
       // Se anche il log fallisce non c'è altro da fare: l'interfaccia non deve rompersi.

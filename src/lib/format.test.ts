@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBytes, formatDateTime } from "./format";
+import { formatBytes, formatDateTime, formatDuration, formatScale } from "./format";
 
 describe("formatBytes", () => {
   it("formatta in italiano con multipli di 1024", () => {
@@ -20,5 +20,17 @@ describe("formatDateTime", () => {
   });
   it("formatta una data valida", () => {
     expect(formatDateTime("2026-10-13T15:07:00Z")).toMatch(/13\/10\/2026/);
+  });
+});
+
+describe("formatDuration e formatScale", () => {
+  it("minuti e secondi", () => {
+    expect(formatDuration(0)).toBe("0:00");
+    expect(formatDuration(83_500)).toBe("1:23");
+    expect(formatDuration(600_000)).toBe("10:00");
+  });
+  it("livello di zoom", () => {
+    expect(formatScale(2)).toBe("2,0×");
+    expect(formatScale(1.75)).toBe("1,8×");
   });
 });
