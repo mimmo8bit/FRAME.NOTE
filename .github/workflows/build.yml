@@ -1,0 +1,157 @@
+name: Build
+
+# Pacchetti .dmg (macOS arm64) e .msi (Windows x64):
+# - push su main → artefatti scaricabili per 3 giorni;
+# - tag vX.Y.Z → GitHub Release (pre-release) con .dmg, .msi e SHA256SUMS.txt;
+# - avvio manuale (Actions → Build → Run workflow) per provare un branch.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  ffmpeg:
+    uses: ./.github/workflows/ffmpeg.yml
+
+  macos:
+    name: Pacchetto macOS (.dmg arm64)
+    needs: [test, ffmpeg]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Sidecar FFmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/fetch-ffmpeg.sh aarch64-apple-darwin
+      - name: Build Tauri (bundle .app)
+        run: npm run tauri build -- --bundles app
+      - name: Firma con il certificato stabile
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          # Le release devono essere firmate; le build di main possono ripiegare sull'ad-hoc.
+          SIGNING_REQUIRED: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: scripts/macos-sign.sh src-tauri/target/release/bundle/macos/FrameNote.app
+      - name: Smoke test del sidecar incluso
+        run: |
+          set -euo pipefail
+          ff=src-tauri/target/release/bundle/macos/FrameNote.app/Contents/MacOS/ffmpeg
+          version=$("$ff" -hide_banner -version)
+          sed -n 1p <<<"$version"
+          encoders=$("$ff" -hide_banner -encoders)
+          grep -E "h264_videotoolbox|hevc_videotoolbox" <<<"$encoders"
+          codesign --verify --deep --strict --verbose=2 src-tauri/target/release/bundle/macos/FrameNote.app
+      - name: Crea il .dmg
+        id: dmg
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          dmg="FrameNote_${version}_aarch64.dmg"
+          scripts/macos-dmg.sh src-tauri/target/release/bundle/macos/FrameNote.app "$dmg"
+          echo "path=$dmg" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: framenote-macos
+          path: ${{ steps.dmg.outputs.path }}
+          retention-days: 3
+          if-no-files-found: error
+
+  windows:
+    name: Pacchetto Windows (.msi x64)
+    needs: [test, ffmpeg]
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Sidecar FFmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/fetch-ffmpeg.sh x86_64-pc-windows-msvc
+      - name: Build Tauri (bundle .msi)
+        run: npm run tauri build -- --bundles msi
+      - name: Smoke test del sidecar
+        run: |
+          set -euo pipefail
+          ff=src-tauri/target/release/ffmpeg.exe
+          version=$("$ff" -hide_banner -version)
+          sed -n 1p <<<"$version"
+          encoders=$("$ff" -hide_banner -encoders)
+          grep -E "h264_(nvenc|qsv|amf|mf)" <<<"$encoders"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: framenote-windows
+          path: src-tauri/target/release/bundle/msi/*.msi
+          retention-days: 3
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-release
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd dist-release
+          sha256sum -- *.dmg *.msi > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          version="${GITHUB_REF_NAME#v}"
+          cat > notes.md <<NOTES
+          Versione di prova di FrameNote $version.
+
+          - **Mac (Apple Silicon):** scarica il file \`.dmg\`.
+          - **Windows:** scarica il file \`.msi\`.
+
+          Come installarla e aprirla la prima volta (avvisi di macOS e Windows): vedi il [README](https://github.com/$GITHUB_REPOSITORY#readme).
+          Per controllare che il file non sia corrotto confronta lo SHA256 con \`SHA256SUMS.txt\` (facoltativo).
+
+          Commit: $GITHUB_SHA
+          NOTES
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "FrameNote $version" \
+            --notes-file notes.md \
+            --prerelease \
+            ./*.dmg ./*.msi SHA256SUMS.txt

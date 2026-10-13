@@ -1,0 +1,24 @@
+# Node / Vite
+node_modules/
+dist/
+*.log
+!src-tauri/tests/fixtures/*.log
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Sidecar FFmpeg: scaricati dalla CI dalla release ffmpeg-*-lgpl, mai nel repo
+src-tauri/binaries/*
+!src-tauri/binaries/README.md
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Mai nel repo: certificati, chiavi, registrazioni
+*.p12
+*.pem
+*.key
+*.mp4
+*.mov

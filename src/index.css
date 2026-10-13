@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/* Tema di sistema: Tailwind usa prefers-color-scheme per le varianti dark:. */
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color-scheme: light dark;
+}
+
+body {
+  @apply bg-white text-neutral-900 antialiased dark:bg-neutral-900 dark:text-neutral-100;
+}
+
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-red-500;
+}

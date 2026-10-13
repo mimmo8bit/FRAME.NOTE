@@ -1,0 +1,4 @@
+# Gli script girano anche con bash sui runner Windows: sempre fine riga LF.
+*.sh  text eol=lf
+*.env text eol=lf
+*.yml text eol=lf

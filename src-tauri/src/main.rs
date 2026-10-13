@@ -1,0 +1,6 @@
+// Su Windows, in release, niente finestra di console.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+fn main() {
+    framenote_lib::run()
+}

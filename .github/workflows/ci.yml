@@ -1,0 +1,88 @@
+name: Test
+
+# Sui branch di lavoro solo test, quasi tutti su Linux (veloce, non occupa gli slot macOS).
+# I pacchetti .dmg/.msi si fanno in build.yml, solo su main e sui tag.
+on:
+  push:
+    branches-ignore: [main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: Versione coerente
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: scripts/check-version.sh
+
+  frontend:
+    name: Frontend (tsc, vitest, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  rust-linux:
+    name: Rust su Linux (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Librerie di sistema per Tauri e FFmpeg per i test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev ffmpeg
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      # generate_context! legge la cartella dist del frontend.
+      - run: npm ci && npm run build
+      - run: cargo fmt --check
+        working-directory: src-tauri
+      - run: cargo clippy --all-targets --locked -- -D warnings
+        working-directory: src-tauri
+      - run: cargo test --locked
+        working-directory: src-tauri
+        env:
+          FRAMENOTE_TEST_FFMPEG: /usr/bin/ffmpeg
+
+  rust-macos:
+    name: Rust su macOS (test)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm run build
+      - run: cargo test --locked
+        working-directory: src-tauri
+        env:
+          # Qui non serve il sidecar FFmpeg: si compila e si testa solo il codice.
+          TAURI_CONFIG: '{"bundle":{"externalBin":[]}}'

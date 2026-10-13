@@ -1,0 +1,79 @@
+name: Crea certificato di firma
+
+# Da eseguire a mano UNA volta (Actions → "Crea certificato di firma" → Run workflow).
+# Genera un certificato self-signed di firma del codice per macOS e lo salva nei
+# secret del repository: MACOS_CERT_P12, MACOS_CERT_PASSWORD, MACOS_SIGNING_IDENTITY.
+# Il certificato nasce qui e non passa mai né dal Mac né dalla chat; nessun valore
+# segreto viene stampato. Se i secret esistono già si ferma: è così che la firma
+# (e quindi i permessi concessi su macOS) resta stabile tra le build.
+#
+# Richiede il secret temporaneo SIGNING_BOOTSTRAP_TOKEN: un fine-grained token con
+# permesso "Secrets: Read and write" solo su questo repository (vedi README).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.SIGNING_BOOTSTRAP_TOKEN }}
+    steps:
+      - name: Controlla il token
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::manca il secret SIGNING_BOOTSTRAP_TOKEN (vedi README, sezione firma)"; exit 1
+          fi
+
+      - name: Non sovrascrivere un certificato esistente
+        run: |
+          set -euo pipefail
+          existing=$(gh secret list --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name')
+          for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD MACOS_SIGNING_IDENTITY; do
+            if grep -qx "$name" <<<"$existing"; then
+              echo "::error::il secret $name esiste già: il certificato non viene rigenerato. Se va davvero sostituito, elimina a mano i tre secret MACOS_* e rilancia (i permessi di macOS andranno riconcessi una volta)."
+              exit 1
+            fi
+          done
+
+      - name: Genera il certificato e salva i secret
+        run: |
+          set -euo pipefail
+          umask 077
+          dir="$RUNNER_TEMP/cert"
+          mkdir -p "$dir"
+          trap 'rm -rf "$dir"' EXIT
+
+          openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 7300 \
+            -keyout "$dir/key.pem" -out "$dir/cert.pem" \
+            -subj "/CN=FrameNote Self-Signed" \
+            -addext "keyUsage=critical,digitalSignature" \
+            -addext "extendedKeyUsage=critical,codeSigning" \
+            -addext "basicConstraints=critical,CA:false" 2>/dev/null
+
+          P12_PASSWORD=$(openssl rand -hex 24)
+          echo "::add-mask::$P12_PASSWORD"
+          export P12_PASSWORD
+          # Cifratura 3DES/SHA1: è quella che "security import" di macOS legge sempre.
+          openssl pkcs12 -export -inkey "$dir/key.pem" -in "$dir/cert.pem" \
+            -name "FrameNote Self-Signed" \
+            -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 \
+            -passout env:P12_PASSWORD -out "$dir/cert.p12"
+
+          identity=$(openssl x509 -in "$dir/cert.pem" -noout -fingerprint -sha1 | cut -d= -f2 | tr -d :)
+
+          base64 -w0 "$dir/cert.p12" | gh secret set MACOS_CERT_P12 --repo "$GITHUB_REPOSITORY"
+          printf '%s' "$P12_PASSWORD" | gh secret set MACOS_CERT_PASSWORD --repo "$GITHUB_REPOSITORY"
+          printf '%s' "$identity" | gh secret set MACOS_SIGNING_IDENTITY --repo "$GITHUB_REPOSITORY"
+
+          # Dati pubblici (compaiono comunque in ogni app firmata).
+          echo "Certificato creato: CN=FrameNote Self-Signed, validità 20 anni"
+          echo "Impronta SHA-1 (identità di firma): $identity"
+          openssl x509 -in "$dir/cert.pem" -noout -dates
+
+      - name: Promemoria
+        run: |
+          echo "Fatto. Ora elimina il secret SIGNING_BOOTSTRAP_TOKEN e revoca il token in"
+          echo "GitHub → Settings → Developer settings → Personal access tokens."

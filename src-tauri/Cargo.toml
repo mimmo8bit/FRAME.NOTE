@@ -1,0 +1,40 @@
+[package]
+name = "framenote"
+version = "0.0.1"
+description = "FrameNote: registrazione schermo, video per i clienti e note delle call, tutto in locale"
+authors = ["Domenico"]
+edition = "2021"
+rust-version = "1.90"
+publish = false
+
+[lib]
+name = "framenote_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
+rusqlite = { version = "0.40", features = ["bundled"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
+sysinfo = "0.39"
+wgpu = "30"
+pollster = "0.4"
+time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
