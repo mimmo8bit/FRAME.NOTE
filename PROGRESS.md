@@ -1,8 +1,21 @@
 # FrameNote — Avanzamento
 
 ## Stato attuale
-- **Milestone in corso:** M0 — codice scritto e testato nell'ambiente cloud; **CI non ancora eseguita** (push su GitHub bloccato, vedi sotto)
+- **Milestone in corso:** M0 — CI verde su `main`, .dmg e .msi prodotti; manca la release `v0.0.1` firmata e la prova di Domenico
 - **Ultima build provata da Domenico:** nessuna
+
+## 2026-10-13 — Sessione 1, seconda parte: CI reale
+**Fatto e verificato su GitHub Actions**
+- Accesso in scrittura sistemato; PR mimmo8bit/FRAME.NOTE#1 unita su `main`.
+- `ci.yml` verde (Linux + Rust su macOS). `build.yml` su `main` verde: FFmpeg 8.1.2 LGPL compilato per macOS arm64 (con `h264_videotoolbox`/`hevc_videotoolbox`) e preparato per Windows, pubblicato nella release `ffmpeg-8.1.2-lgpl-1`; `.msi` e `.dmg` prodotti.
+- Certificato di firma creato da Domenico con `signing-bootstrap.yml` (secret `MACOS_*` presenti, token temporaneo eliminato).
+- La build di `main` è firmata ad-hoc: era partita prima che esistesse il certificato (i secret si leggono all'avvio della run).
+
+**Problemi aperti**
+- Il push del tag `v0.0.1` dalla sessione cloud è rifiutato (403). Aggiunta l'opzione "Pubblica" a `build.yml` (vedi `DECISIONS.md`).
+
+**Prossimo passo**
+- Unire la PR con l'opzione "Pubblica", lanciare Build su `main` con Pubblica attivo, verificare nel log la firma con il certificato, poi prova di Domenico.
 
 ## 2026-10-13 — Sessione 1 (cloud): implementazione di M0
 **Fatto**

@@ -71,3 +71,7 @@ Registro delle decisioni di progetto. Ogni voce: data, decisione, motivo, altern
 ## 2026-10-13 — Build manuale di un branch
 - **Decisione:** `build.yml` si può avviare anche a mano (`workflow_dispatch`) su un branch, oltre che su push a `main` e sui tag.
 - **Motivo:** permette di produrre un pacchetto di prova senza unire su `main`. Le release si creano comunque solo dai tag `v*`.
+
+## 2026-10-13 — Release anche dal pulsante "Run workflow"
+- **Decisione:** `build.yml` avviato a mano su `main` con l'opzione **Pubblica** crea da solo tag e pre-release `v<versione di tauri.conf.json>`. Il push di un tag `v*` resta valido.
+- **Motivo:** dalle sessioni cloud di Claude il push di tag su GitHub è rifiutato (403): si può fare push solo sul branch di lavoro. Così la release si pubblica senza tag a mano. La firma con il certificato è obbligatoria anche in questo caso, e una release già esistente non viene mai sovrascritta.

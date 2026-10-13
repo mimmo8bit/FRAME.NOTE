@@ -3,12 +3,19 @@ name: Build
 # Pacchetti .dmg (macOS arm64) e .msi (Windows x64):
 # - push su main → artefatti scaricabili per 3 giorni;
 # - tag vX.Y.Z → GitHub Release (pre-release) con .dmg, .msi e SHA256SUMS.txt;
-# - avvio manuale (Actions → Build → Run workflow) per provare un branch.
+# - avvio manuale (Actions → Build → Run workflow) per provare un branch;
+#   su main, con "pubblica" attivo, crea la release v<versione di tauri.conf.json>
+#   (tag compreso) senza dover fare push di un tag.
 on:
   push:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      pubblica:
+        description: "Pubblica la release v<versione> da questo commit (solo su main)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -54,7 +61,7 @@ jobs:
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           # Le release devono essere firmate; le build di main possono ripiegare sull'ad-hoc.
-          SIGNING_REQUIRED: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          SIGNING_REQUIRED: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.pubblica && github.ref == 'refs/heads/main') }}
         run: scripts/macos-sign.sh src-tauri/target/release/bundle/macos/FrameNote.app
       - name: Smoke test del sidecar incluso
         run: |
@@ -121,7 +128,7 @@ jobs:
 
   release:
     name: GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.pubblica && github.ref == 'refs/heads/main')
     needs: [macos, windows]
     runs-on: ubuntu-latest
     steps:
@@ -135,9 +142,16 @@ jobs:
         run: |
           set -euo pipefail
           cd dist-release
+          version=$(node -p "require('../src-tauri/tauri.conf.json').version")
+          tag="v$version"
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "$tag" ]]; then
+            echo "::error::il tag $GITHUB_REF_NAME non corrisponde alla versione $version"; exit 1
+          fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::la release $tag esiste già: aumenta la versione prima di pubblicarne un'altra"; exit 1
+          fi
           sha256sum -- *.dmg *.msi > SHA256SUMS.txt
           cat SHA256SUMS.txt
-          version="${GITHUB_REF_NAME#v}"
           cat > notes.md <<NOTES
           Versione di prova di FrameNote $version.
 
@@ -149,8 +163,9 @@ jobs:
 
           Commit: $GITHUB_SHA
           NOTES
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$tag" \
             --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
             --title "FrameNote $version" \
             --notes-file notes.md \
             --prerelease \

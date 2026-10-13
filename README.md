@@ -76,13 +76,15 @@ Sul PC non si installa nulla: il codice si compila e si testa in GitHub Actions.
 | Workflow | Quando | Cosa fa |
 |---|---|---|
 | `ci.yml` (Test) | push su qualsiasi branch tranne `main` | fmt, clippy, test Rust su Linux; test Rust su macOS; tsc, Vitest, build frontend |
-| `build.yml` (Build) | push su `main`, tag `v*`, avvio manuale | test, poi `.dmg` firmato e `.msi` (artefatti per 3 giorni); sul tag crea la Release |
+| `build.yml` (Build) | push su `main`, tag `v*`, avvio manuale | test, poi `.dmg` firmato e `.msi` (artefatti per 3 giorni); sul tag, o a mano con "Pubblica", crea la Release |
 | `ffmpeg.yml` | chiamato da `build.yml` | se manca, crea la release `ffmpeg-<versione>-lgpl-<n>` con i sidecar |
 | `signing-bootstrap.yml` | solo a mano, una volta | crea il certificato di firma macOS nei secret |
 
 - **Versione:** si cambia in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` e `package.json`
   (`scripts/check-version.sh` controlla che coincidano, e che coincidano col tag).
-- **Nuova release:** tag `vX.Y.Z` sul commit di `main` → la CI pubblica la pre-release.
+- **Nuova release:** aggiorna la versione, unisci su `main`, poi **Actions → Build → Run workflow**
+  (branch `main`) con **Pubblica** attivo: la CI crea tag e pre-release `vX.Y.Z`. In alternativa
+  basta fare push di un tag `vX.Y.Z` sul commit di `main`.
 - **FFmpeg:** versione e checksum in `scripts/ffmpeg.env`. Per cambiare versione o opzioni
   aggiorna i valori e il suffisso di `FFMPEG_RELEASE_TAG`.
 
