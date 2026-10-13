@@ -2,7 +2,7 @@
 
 ## Stato attuale
 - **Milestone completata:** M0 ✅ (verificata da Domenico il 2026-10-13)
-- **Prossima milestone:** M1 — spike zoom (da pianificare in plan mode e far approvare)
+- **Prossima milestone:** M1 — spike zoom: piano in `PIANO_M1.md`, in attesa di approvazione
 - **Ultima build provata da Domenico:** `v0.0.1` (commit `b91e98a`), macOS 26.6.2, MacBook M1 Pro
 
 ## 2026-10-13 — Chiusura di M0: prova di Domenico
@@ -19,7 +19,7 @@
 **Note per le prossime milestone**
 - Su macOS in inglese i pulsanti sono "Done" e "Open Anyway"; il README li riporta in italiano: da allineare quando si aggiorna il README.
 - Il sistema compare come "Darwin macOS 26.6.2 Tahoe": dettaglio estetico della diagnostica.
-- "Esporta diagnostica" non è ancora stato provato sul Mac.
+- "Esporta diagnostica" verificato da Domenico: lo zip contiene solo `info.json` e il log, percorsi anonimizzati, nessun errore nel log. Spazio libero sul Mac ≈ 30 GB, RAM 16 GB (≈ 6 GB liberi durante la prova).
 
 ## 2026-10-13 — Sessione 1, seconda parte: CI reale
 **Fatto e verificato su GitHub Actions**
