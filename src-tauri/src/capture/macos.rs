@@ -96,6 +96,8 @@ enum Msg {
 struct Shared {
     t0_ns: AtomicU64,
     stop_ns: AtomicU64,
+    /// Da qui in poi i frame in arrivo si ignorano (non sono "persi").
+    stopping: AtomicBool,
     received: AtomicU64,
     idle: AtomicU64,
     dropped: AtomicU64,
@@ -197,6 +199,28 @@ pub fn start(project_dir: &Path, ffmpeg: &Path, encoder: &str) -> Result<ActiveR
     let me = std::process::id() as i32;
     let apps = content.applications();
     let own: Vec<&SCRunningApplication> = apps.iter().filter(|a| a.process_id() == me).collect();
+    // I clic sulle finestre di FrameNote (che nel video non si vedono, per
+    // esempio su «Ferma») non devono generare zoom.
+    let own_windows: Vec<Rect> = content
+        .windows()
+        .iter()
+        .filter(|w| {
+            w.is_on_screen() && w.owning_application().is_some_and(|a| a.process_id() == me)
+        })
+        .map(|w| {
+            let f = w.frame();
+            Rect {
+                x: f.origin.x,
+                y: f.origin.y,
+                w: f.size.width,
+                h: f.size.height,
+            }
+        })
+        .collect();
+    tracing::info!(
+        finestre = own_windows.len(),
+        "registrazione: finestre di FrameNote escluse"
+    );
     let filter = SCContentFilter::create()
         .with_display(display)
         .with_excluding_applications(&own, &[])
@@ -250,7 +274,9 @@ pub fn start(project_dir: &Path, ffmpeg: &Path, encoder: &str) -> Result<ActiveR
         let pool = pool.clone();
         let tx = tx.clone();
         move |sample: CMSampleBuffer, of_type: SCStreamOutputType| {
-            if !matches!(of_type, SCStreamOutputType::Screen) {
+            if !matches!(of_type, SCStreamOutputType::Screen)
+                || shared.stopping.load(Ordering::Relaxed)
+            {
                 return;
             }
             let has_content = sample.frame_status().is_none_or(|s| s.is_complete());
@@ -331,7 +357,7 @@ pub fn start(project_dir: &Path, ffmpeg: &Path, encoder: &str) -> Result<ActiveR
         let path = project_dir.join(EVENTS_FILE);
         std::thread::Builder::new()
             .name("framenote-mouse".into())
-            .spawn(move || poller_loop(&path, geometry, stop, shared))
+            .spawn(move || poller_loop(&path, geometry, &own_windows, stop, shared))
             .map_err(|e| e.to_string())?
     };
     let monitor = {
@@ -441,6 +467,7 @@ fn writer_loop(
 fn poller_loop(
     path: &Path,
     geometry: DisplayGeometry,
+    own_windows: &[Rect],
     stop: Arc<AtomicBool>,
     shared: Arc<Shared>,
 ) -> Result<(), String> {
@@ -474,7 +501,11 @@ fn poller_loop(
                             .map_err(|e| e.to_string())?;
                         last_pos = Some((x, y));
                     }
+                    let on_framenote = point_in_rects(xp, yp, own_windows);
                     for (button, kind) in buttons.update(mouse::buttons()) {
+                        if on_framenote {
+                            continue;
+                        }
                         out.write(&ev(kind, Some(button)))
                             .map_err(|e| e.to_string())?;
                         if kind == EventKind::Click {
@@ -547,6 +578,7 @@ impl ActiveRecording {
     }
 
     pub fn stop(mut self) -> Result<RecordingOutcome, String> {
+        self.shared.stopping.store(true, Ordering::SeqCst);
         self.shared
             .stop_ns
             .store(host_time_ns(&CMClock::host_time_clock()), Ordering::SeqCst);

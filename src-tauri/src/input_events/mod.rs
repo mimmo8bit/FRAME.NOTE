@@ -85,6 +85,21 @@ impl DisplayGeometry {
     }
 }
 
+/// Rettangolo in punti globali (per esempio una finestra di FrameNote).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rect {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
+
+pub fn point_in_rects(x: f64, y: f64, rects: &[Rect]) -> bool {
+    rects
+        .iter()
+        .any(|r| x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h)
+}
+
 /// Scrittura incrementale di `events.jsonl`.
 pub struct EventWriter {
     out: BufWriter<File>,
@@ -255,6 +270,20 @@ mod tests {
         let read = read_events(&path).unwrap();
         assert_eq!(read.events, evs);
         assert_eq!(read.skipped_lines, 1);
+    }
+
+    #[test]
+    fn clic_sulle_finestre_di_framenote() {
+        let wins = [Rect {
+            x: 100.0,
+            y: 50.0,
+            w: 960.0,
+            h: 720.0,
+        }];
+        assert!(point_in_rects(100.0, 50.0, &wins));
+        assert!(point_in_rects(1059.0, 769.0, &wins));
+        assert!(!point_in_rects(1060.0, 300.0, &wins));
+        assert!(!point_in_rects(5.0, 5.0, &[]));
     }
 
     #[test]
