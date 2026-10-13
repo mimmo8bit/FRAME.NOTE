@@ -1,13 +1,22 @@
+// In M1 la registrazione esiste solo su macOS: sugli altri sistemi parte di
+// questi moduli è usata soltanto dai test (il controllo completo gira in CI su macOS).
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod capture;
 mod commands;
 mod diagnostics;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod encoder;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod input_events;
 mod library;
 mod paths;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod project;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod render;
 mod state;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+mod zoom_commands;
 
 use std::sync::Mutex;
 
@@ -82,6 +91,10 @@ fn init_state(app: &AppHandle) -> AppState {
         db: Mutex::new(db),
         last_info: Mutex::new(None),
         startup_problems: problems,
+        encoder: Mutex::new(None),
+        #[cfg(target_os = "macos")]
+        recording: Mutex::new(None),
+        export_cancel: std::sync::atomic::AtomicBool::new(false),
         _log_guard: log_guard,
     }
 }
@@ -102,6 +115,15 @@ pub fn run() {
             commands::default_diagnostics_file_name,
             commands::export_diagnostics,
             commands::log_frontend,
+            zoom_commands::capture_status,
+            zoom_commands::request_screen_permission,
+            zoom_commands::open_screen_permission_settings,
+            zoom_commands::start_recording,
+            zoom_commands::recording_status,
+            zoom_commands::stop_recording,
+            zoom_commands::export_zoom,
+            zoom_commands::cancel_export,
+            zoom_commands::open_project_file,
         ])
         .run(tauri::generate_context!())
         .expect("errore all'avvio di FrameNote");

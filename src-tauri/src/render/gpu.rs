@@ -107,7 +107,11 @@ impl Compositor {
             ..Default::default()
         }))
         .map_err(|e| GpuError::NoAdapter(e.to_string()))?;
-        let adapter_name = format!("{} ({:?})", adapter.get_info().name, adapter.get_info().backend);
+        let adapter_name = format!(
+            "{} ({:?})",
+            adapter.get_info().name,
+            adapter.get_info().backend
+        );
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("framenote"),
             required_limits: wgpu::Limits::default().using_resolution(adapter.limits()),
@@ -120,7 +124,14 @@ impl Compositor {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/compose.wgsl").into()),
         });
         let sampled = wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST;
-        let tex_y = texture(&device, "y", src.0, src.1, wgpu::TextureFormat::R8Unorm, sampled);
+        let tex_y = texture(
+            &device,
+            "y",
+            src.0,
+            src.1,
+            wgpu::TextureFormat::R8Unorm,
+            sampled,
+        );
         let tex_uv = texture(
             &device,
             "uv",
@@ -284,10 +295,6 @@ impl Compositor {
         })
     }
 
-    pub fn output_size(&self) -> (u32, u32) {
-        self.out
-    }
-
     /// Compone un frame. `nv12`: piano Y seguito dal piano UV interlacciato,
     /// senza padding. `out_rgba` riceve `larghezza × altezza × 4` byte.
     pub fn render(
@@ -299,20 +306,35 @@ impl Compositor {
         let (w, h) = self.src;
         let y_len = (w * h) as usize;
         write_tex(&self.queue, &self.tex_y, &nv12[..y_len], 1);
-        write_tex(&self.queue, &self.tex_uv, &nv12[y_len..y_len + y_len / 2], 2);
+        write_tex(
+            &self.queue,
+            &self.tex_uv,
+            &nv12[y_len..y_len + y_len / 2],
+            2,
+        );
         let u = Uniforms {
             viewport: p.viewport,
             sizes: [w as f32, h as f32, self.out.0 as f32, self.out.1 as f32],
-            cursor: [p.cursor_xy[0], p.cursor_xy[1], p.cursor_height, p.cursor_opacity],
+            cursor: [
+                p.cursor_xy[0],
+                p.cursor_xy[1],
+                p.cursor_height,
+                p.cursor_opacity,
+            ],
             cursor_img: self.cursor_img,
             ring: p.ring,
         };
-        self.queue.write_buffer(&self.uniforms, 0, bytemuck::bytes_of(&u));
+        self.queue
+            .write_buffer(&self.uniforms, 0, bytemuck::bytes_of(&u));
 
-        let target_view = self.target.create_view(&wgpu::TextureViewDescriptor::default());
+        let target_view = self
+            .target
+            .create_view(&wgpu::TextureViewDescriptor::default());
         let mut enc = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("frame") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("frame"),
+            });
         {
             let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("compose"),
@@ -422,9 +444,12 @@ mod tests {
     #[test]
     fn inquadratura_intera_ridotta() {
         let (sw, sh, ow, oh) = (640, 400, 320, 200);
-        let Some(mut c) = compositor((sw, sh), (ow, oh)) else { return };
+        let Some(mut c) = compositor((sw, sh), (ow, oh)) else {
+            return;
+        };
         let mut out = Vec::new();
-        c.render(&half_black_half_white(sw, sh), &full(sw, sh), &mut out).unwrap();
+        c.render(&half_black_half_white(sw, sh), &full(sw, sh), &mut out)
+            .unwrap();
         assert_eq!(out.len(), (ow * oh * 4) as usize);
         assert!(px(&out, ow, 40, 100)[0] < 5, "sinistra nera");
         assert!(px(&out, ow, 280, 100)[0] > 250, "destra bianca");
@@ -434,23 +459,31 @@ mod tests {
     #[test]
     fn zoom_2x_sulla_meta_destra() {
         let (sw, sh, ow, oh) = (640, 400, 320, 200);
-        let Some(mut c) = compositor((sw, sh), (ow, oh)) else { return };
+        let Some(mut c) = compositor((sw, sh), (ow, oh)) else {
+            return;
+        };
         let mut out = Vec::new();
         // Inquadratura 2× centrata nel quarto destro: tutta bianca.
         let p = FrameParams {
             viewport: [400.0, 100.0, 320.0, 200.0],
             ..Default::default()
         };
-        c.render(&half_black_half_white(sw, sh), &p, &mut out).unwrap();
+        c.render(&half_black_half_white(sw, sh), &p, &mut out)
+            .unwrap();
         for (x, y) in [(2, 2), (160, 100), (317, 197)] {
-            assert!(px(&out, ow, x, y)[0] > 250, "({x},{y}) {:?}", px(&out, ow, x, y));
+            assert!(
+                px(&out, ow, x, y)[0] > 250,
+                "({x},{y}) {:?}",
+                px(&out, ow, x, y)
+            );
         }
         // Inquadratura 2× sul confine: il bordo nero/bianco è al centro dell'uscita.
         let p = FrameParams {
             viewport: [240.0, 100.0, 160.0, 100.0],
             ..Default::default()
         };
-        c.render(&half_black_half_white(sw, sh), &p, &mut out).unwrap();
+        c.render(&half_black_half_white(sw, sh), &p, &mut out)
+            .unwrap();
         assert!(px(&out, ow, 150, 100)[0] < 10);
         assert!(px(&out, ow, 170, 100)[0] > 245);
     }
@@ -458,7 +491,9 @@ mod tests {
     #[test]
     fn cursore_e_anello() {
         let (sw, sh, ow, oh) = (640, 400, 640, 400);
-        let Some(mut c) = compositor((sw, sh), (ow, oh)) else { return };
+        let Some(mut c) = compositor((sw, sh), (ow, oh)) else {
+            return;
+        };
         // Sorgente grigia uniforme.
         let mut gray = vec![126u8; (sw * sh) as usize];
         gray.resize((sw * sh * 3 / 2) as usize, 128);

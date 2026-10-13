@@ -103,10 +103,8 @@ pub struct CursorTrack {
 
 impl CursorTrack {
     pub fn build(events: &[InputEvent], settings: CursorSettings) -> Self {
-        let mut raw: Vec<(f64, f64, f64)> = events
-            .iter()
-            .map(|e| (e.t_ms as f64, e.x, e.y))
-            .collect();
+        let mut raw: Vec<(f64, f64, f64)> =
+            events.iter().map(|e| (e.t_ms as f64, e.x, e.y)).collect();
         raw.sort_by(|a, b| a.0.total_cmp(&b.0));
         let clicks = events
             .iter()
@@ -144,14 +142,6 @@ impl CursorTrack {
         }
     }
 
-    pub fn settings(&self) -> &CursorSettings {
-        &self.settings
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.smoothed.is_empty()
-    }
-
     /// Posizione smussata in pixel del video.
     pub fn position(&self, t_ms: f64) -> Option<(f64, f64)> {
         let s = &self.smoothed;
@@ -177,7 +167,11 @@ impl CursorTrack {
         let s = &self.settings;
         let idx = self.activity.partition_point(|&a| a <= t_ms);
         // Prima del primo evento il cursore è visibile (è dove l'utente l'ha lasciato).
-        let last = if idx == 0 { 0.0 } else { self.activity[idx - 1] };
+        let last = if idx == 0 {
+            0.0
+        } else {
+            self.activity[idx - 1]
+        };
         let idle = t_ms - last;
         let fade_out = 1.0 - ((idle - s.hide_after_ms) / s.fade_out_ms).clamp(0.0, 1.0);
         let prev = if idx >= 2 {
@@ -262,7 +256,9 @@ mod tests {
     #[test]
     fn segue_un_movimento_veloce_e_si_ferma_sul_punto_giusto() {
         // Da 0 a 2000 px in 250 ms, poi fermo.
-        let mut evs: Vec<_> = (0..=30).map(|i| mv(i * 8, i as f64 * 66.67, 100.0)).collect();
+        let mut evs: Vec<_> = (0..=30)
+            .map(|i| mv(i * 8, i as f64 * 66.67, 100.0))
+            .collect();
         evs.push(mv(400, 2000.0, 100.0));
         let t = CursorTrack::build(&evs, CursorSettings::default());
         // Durante il movimento il ritardo resta contenuto.
@@ -307,6 +303,8 @@ mod tests {
             click_ring: false,
             ..s
         };
-        assert!(CursorTrack::build(&[click(0, 1.0, 1.0)], off).ring(10.0).is_none());
+        assert!(CursorTrack::build(&[click(0, 1.0, 1.0)], off)
+            .ring(10.0)
+            .is_none());
     }
 }

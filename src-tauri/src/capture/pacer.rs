@@ -80,7 +80,13 @@ mod tests {
         let mut p = Pacer::new(30);
         for i in 0..10u64 {
             let a = p.on_frame(1_000 * MS + i * 33_333_333);
-            assert_eq!(a, PacerAction { repeat_previous: 0, write: true });
+            assert_eq!(
+                a,
+                PacerAction {
+                    repeat_previous: 0,
+                    write: true
+                }
+            );
         }
         assert_eq!(p.written(), 10);
         assert_eq!(p.t0_ns(), Some(1_000 * MS));

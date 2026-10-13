@@ -158,8 +158,7 @@ pub fn plan_zooms(
             let (mx, my) = g
                 .iter()
                 .fold((0.0, 0.0), |(ax, ay), k| (ax + k.x / n, ay + k.y / n));
-            c.t_ms - last.t_ms <= s.cluster_time_ms
-                && (c.x - mx).hypot(c.y - my) <= max_dist
+            c.t_ms - last.t_ms <= s.cluster_time_ms && (c.x - mx).hypot(c.y - my) <= max_dist
         });
         if joins {
             groups.last_mut().expect("gruppo presente").push(c);
@@ -243,7 +242,9 @@ impl CameraTrack {
         let mut follow_target: Option<(f64, f64)> = None;
         for i in 0..n {
             let t_ms = i as f64 * 1000.0 / SIM_HZ;
-            let block = blocks.iter().find(|b| t_ms >= b.start_ms && t_ms < b.end_ms);
+            let block = blocks
+                .iter()
+                .find(|b| t_ms >= b.start_ms && t_ms < b.end_ms);
             let (target_scale, tx, ty) = match block {
                 Some(b) => {
                     // Dentro lo zoom la telecamera segue il cursore solo quando
@@ -277,7 +278,11 @@ impl CameraTrack {
             cy.step(ty, s.spring_omega, dt);
             let scale = ln_scale.x.exp().max(1.0);
             let (x, y) = clamp_center(cx.x, cy.x, scale, width, height);
-            samples.push(Camera { scale, cx: x, cy: y });
+            samples.push(Camera {
+                scale,
+                cx: x,
+                cy: y,
+            });
         }
         Self {
             width,
@@ -308,7 +313,7 @@ impl CameraTrack {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::input_events::{Button, EventKind, InputEvent};
+    use crate::input_events::{EventKind, InputEvent};
     use crate::render::cursor::CursorSettings;
 
     const W: f64 = 3024.0;
@@ -405,7 +410,10 @@ mod tests {
         for f in 0..900 {
             let t = f as f64 * 1000.0 / 30.0;
             let k = cam.at(t);
-            assert!(k.scale >= 1.0 && k.scale <= max_target + 1e-6, "rimbalzo a {t}: {k:?}");
+            assert!(
+                k.scale >= 1.0 && k.scale <= max_target + 1e-6,
+                "rimbalzo a {t}: {k:?}"
+            );
             let (x0, y0, w, h) = k.viewport(W, H);
             assert!(x0 >= -1e-6 && y0 >= -1e-6, "{t}: {k:?}");
             assert!(x0 + w <= W + 1e-6 && y0 + h <= H + 1e-6, "{t}: {k:?}");
@@ -432,7 +440,10 @@ mod tests {
             let speed = (k.scale.ln() - prev.scale.ln()).abs();
             assert!(speed < 0.08, "scatto di livello al frame {f}: {speed}");
             // Anche la velocità varia gradualmente (accelerazione limitata).
-            assert!((speed - prev_speed).abs() < 0.06, "accelerazione brusca al frame {f}");
+            assert!(
+                (speed - prev_speed).abs() < 0.06,
+                "accelerazione brusca al frame {f}"
+            );
             let pan = (k.cx - prev.cx).hypot(k.cy - prev.cy);
             assert!(pan < 140.0, "spostamento brusco al frame {f}: {pan:.0} px");
             prev = k;
@@ -465,19 +476,28 @@ mod tests {
             kind: EventKind::Move,
             x,
             y: 982.0,
-            button: Some(Button::Left).filter(|_| false),
+            button: None,
             display: 1,
         };
         // Piccolo movimento dentro la zona morta: l'inquadratura resta ferma.
-        let small = CursorTrack::build(&[ev(0, 1512.0), ev(3000, 1700.0)], CursorSettings::default());
+        let small = CursorTrack::build(
+            &[ev(0, 1512.0), ev(3000, 1700.0)],
+            CursorSettings::default(),
+        );
         let cam = CameraTrack::simulate(&[block], Some(&small), W, H, 10_000.0, &s);
         assert!((cam.at(6000.0).cx - 1512.0).abs() < 1.0);
         // Il cursore va verso il bordo destro: la telecamera lo segue.
-        let big = CursorTrack::build(&[ev(0, 1512.0), ev(3000, 2900.0)], CursorSettings::default());
+        let big = CursorTrack::build(
+            &[ev(0, 1512.0), ev(3000, 2900.0)],
+            CursorSettings::default(),
+        );
         let cam = CameraTrack::simulate(&[block], Some(&big), W, H, 10_000.0, &s);
         let k = cam.at(6000.0);
         let (x0, _, w, _) = k.viewport(W, H);
         assert!(k.cx > 1600.0, "{k:?}");
-        assert!(2900.0 > x0 && 2900.0 < x0 + w, "cursore fuori inquadratura: {k:?}");
+        assert!(
+            2900.0 > x0 && 2900.0 < x0 + w,
+            "cursore fuori inquadratura: {k:?}"
+        );
     }
 }

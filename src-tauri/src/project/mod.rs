@@ -86,8 +86,8 @@ impl Project {
         let path = dir.join(PROJECT_FILE);
         let text = fs::read_to_string(&path)
             .map_err(|e| format!("non riesco a leggere project.json ({e})"))?;
-        let p: Project = serde_json::from_str(&text)
-            .map_err(|e| format!("project.json non valido ({e})"))?;
+        let p: Project =
+            serde_json::from_str(&text).map_err(|e| format!("project.json non valido ({e})"))?;
         if p.schema_version > SCHEMA_VERSION {
             return Err(format!(
                 "il progetto è stato creato da una versione più recente di FrameNote (schema v{})",
@@ -127,7 +127,11 @@ pub fn slugify(title: &str) -> String {
         }
         out.push(mapped);
     }
-    let out = out.trim_end_matches('-').chars().take(40).collect::<String>();
+    let out = out
+        .trim_end_matches('-')
+        .chars()
+        .take(40)
+        .collect::<String>();
     if out.is_empty() {
         "progetto".into()
     } else {
@@ -206,6 +210,8 @@ mod tests {
         let mut p = Project::new("x", String::new(), "0.1.0");
         p.schema_version = 99;
         p.save(tmp.path()).unwrap();
-        assert!(Project::load(tmp.path()).unwrap_err().contains("più recente"));
+        assert!(Project::load(tmp.path())
+            .unwrap_err()
+            .contains("più recente"));
     }
 }

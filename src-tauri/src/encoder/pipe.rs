@@ -16,7 +16,12 @@ pub fn bitrate(width: u32, height: u32, fps: u32, bpp: f64) -> u64 {
 fn quality_args(encoder: &str, bitrate: u64) -> Vec<String> {
     let b = bitrate.to_string();
     match encoder {
-        "libx264" => vec!["-preset".into(), "veryfast".into(), "-crf".into(), "18".into()],
+        "libx264" => vec![
+            "-preset".into(),
+            "veryfast".into(),
+            "-crf".into(),
+            "18".into(),
+        ],
         "libopenh264" => vec!["-b:v".into(), b],
         "mpeg4" => vec!["-q:v".into(), "3".into()],
         e if e.ends_with("_videotoolbox") => vec![
@@ -70,9 +75,17 @@ pub fn capture_encoder_args(
     .map(|s| s.to_string())
     .collect();
     a.push(format!("{width}x{height}"));
-    a.extend(["-framerate".into(), fps.to_string(), "-i".into(), "-".into()]);
+    a.extend([
+        "-framerate".into(),
+        fps.to_string(),
+        "-i".into(),
+        "-".into(),
+    ]);
     a.extend(["-c:v".into(), encoder.to_string()]);
-    a.extend(quality_args(encoder, bitrate(width, height, fps, CAPTURE_BPP)));
+    a.extend(quality_args(
+        encoder,
+        bitrate(width, height, fps, CAPTURE_BPP),
+    ));
     a.extend(["-g".into(), (fps * 2).to_string()]);
     a.extend(COLOR_TAGS.iter().map(|s| s.to_string()));
     a.extend([
@@ -132,7 +145,10 @@ pub fn export_encoder_args(
         "-c:v".into(),
         encoder.to_string(),
     ];
-    a.extend(quality_args(encoder, bitrate(width, height, fps, EXPORT_BPP)));
+    a.extend(quality_args(
+        encoder,
+        bitrate(width, height, fps, EXPORT_BPP),
+    ));
     a.extend(["-g".into(), (fps * 2).to_string()]);
     a.extend(COLOR_TAGS.iter().map(|s| s.to_string()));
     a.extend([
@@ -174,7 +190,10 @@ mod tests {
         let s = a.join(" ");
         assert!(s.contains("-pix_fmt nv12"));
         assert!(s.contains("-video_size 3024x1964"));
-        assert!(s.contains(&format!("-c:v h264_videotoolbox -b:v {}", bitrate(3024, 1964, 30, CAPTURE_BPP))));
+        assert!(s.contains(&format!(
+            "-c:v h264_videotoolbox -b:v {}",
+            bitrate(3024, 1964, 30, CAPTURE_BPP)
+        )));
         assert!(s.contains("+frag_keyframe+empty_moov"));
         assert!(s.ends_with("-y /p/c.mp4"));
     }
@@ -185,7 +204,8 @@ mod tests {
         assert!(s.contains("-crf 18"));
         assert!(s.contains("-pix_fmt rgba"));
         assert!(s.contains("out_color_matrix=bt709"));
-        let s = export_encoder_args(1920, 1246, 30, "hevc_videotoolbox", Path::new("o.mp4")).join(" ");
+        let s =
+            export_encoder_args(1920, 1246, 30, "hevc_videotoolbox", Path::new("o.mp4")).join(" ");
         assert!(s.contains(&format!("-b:v {}", bitrate(1920, 1246, 30, EXPORT_BPP))));
     }
 }

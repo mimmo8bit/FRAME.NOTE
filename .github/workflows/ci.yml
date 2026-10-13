@@ -41,11 +41,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Librerie di sistema per Tauri e FFmpeg per i test
+      - name: Librerie di sistema per Tauri, FFmpeg e GPU software (lavapipe) per i test
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
-            libayatana-appindicator3-dev librsvg2-dev ffmpeg
+            libayatana-appindicator3-dev librsvg2-dev ffmpeg mesa-vulkan-drivers
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -66,13 +66,20 @@ jobs:
         working-directory: src-tauri
         env:
           FRAMENOTE_TEST_FFMPEG: /usr/bin/ffmpeg
+          # Renderer e pipeline di export provati davvero sulla GPU software.
+          FRAMENOTE_REQUIRE_GPU: "1"
 
   rust-macos:
-    name: Rust su macOS (test)
+    name: Rust su macOS (clippy, test)
     runs-on: macos-latest
+    env:
+      # Qui non serve il sidecar FFmpeg: si compila e si testa solo il codice.
+      TAURI_CONFIG: '{"bundle":{"externalBin":[]}}'
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -81,8 +88,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci && npm run build
+      # Il codice di cattura (ScreenCaptureKit) si compila solo qui: clippy lo controlla.
+      - run: cargo clippy --all-targets --locked -- -D warnings
+        working-directory: src-tauri
       - run: cargo test --locked
         working-directory: src-tauri
-        env:
-          # Qui non serve il sidecar FFmpeg: si compila e si testa solo il codice.
-          TAURI_CONFIG: '{"bundle":{"externalBin":[]}}'

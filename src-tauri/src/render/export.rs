@@ -165,11 +165,12 @@ pub fn export(
                 arrow_src,
                 sprite_ratio,
             );
-            gpu.render(&nv12, &p, &mut rgba).map_err(|e| e.to_string())?;
+            gpu.render(&nv12, &p, &mut rgba)
+                .map_err(|e| e.to_string())?;
             sink.write_all(&rgba)
                 .map_err(|e| format!("FFmpeg ha chiuso la codifica ({e}): {}", tail(&enc_log)))?;
             frames += 1;
-            if frames % 15 == 0 {
+            if frames.is_multiple_of(15) {
                 progress(frames.min(expected), expected);
             }
         }
@@ -263,7 +264,11 @@ mod tests {
                     button: Some(Button::Left),
                     display: 1,
                 });
-                Click { t_ms: t as f64, x, y }
+                Click {
+                    t_ms: t as f64,
+                    x,
+                    y,
+                }
             })
             .collect();
         events.sort_by_key(|e| e.t_ms);
@@ -309,7 +314,10 @@ mod tests {
         let log = String::from_utf8_lossy(&probe.stderr);
         assert!(probe.status.success(), "{log}");
         assert!(log.contains(&format!("{w}x{h}")), "{log}");
-        assert!(log.contains("frame=   90") || log.contains("frame=90"), "{log}");
+        assert!(
+            log.contains("frame=   90") || log.contains("frame=90"),
+            "{log}"
+        );
     }
 
     #[test]
@@ -323,7 +331,18 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let input = tmp.path().join("c.mp4");
         assert!(Command::new(&ffmpeg)
-            .args(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=320x200:rate=30:duration=2", "-c:v", "mpeg4", "-y"])
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x200:rate=30:duration=2",
+                "-c:v",
+                "mpeg4",
+                "-y"
+            ])
             .arg(&input)
             .status()
             .unwrap()
@@ -364,22 +383,55 @@ mod tests {
         let output = input.with_file_name("zoom.mp4");
         let mut events = Vec::new();
         // Il cursore va verso il pulsante, clicca, poi va sul testo e clicca.
-        let path = [(0u64, 600.0, 900.0), (2500, 1900.0, 1340.0), (5200, 1900.0, 1340.0), (6000, 400.0, 255.0)];
+        let path = [
+            (0u64, 600.0, 900.0),
+            (2500, 1900.0, 1340.0),
+            (5200, 1900.0, 1340.0),
+            (6000, 400.0, 255.0),
+        ];
         for t in (0..8000u64).step_by(8) {
             let seg = path.windows(2).find(|w| t >= w[0].0 && t <= w[1].0);
             let (x, y) = match seg {
                 Some(w) => {
                     let k = (t - w[0].0) as f64 / (w[1].0 - w[0].0) as f64;
                     let k = k * k * (3.0 - 2.0 * k);
-                    (w[0].1 + (w[1].1 - w[0].1) * k, w[0].2 + (w[1].2 - w[0].2) * k)
+                    (
+                        w[0].1 + (w[1].1 - w[0].1) * k,
+                        w[0].2 + (w[1].2 - w[0].2) * k,
+                    )
                 }
                 None => (400.0, 255.0),
             };
-            events.push(InputEvent { t_ms: t, kind: EventKind::Move, x, y, button: None, display: 1 });
+            events.push(InputEvent {
+                t_ms: t,
+                kind: EventKind::Move,
+                x,
+                y,
+                button: None,
+                display: 1,
+            });
         }
-        let clicks = [Click { t_ms: 3000.0, x: 1900.0, y: 1340.0 }, Click { t_ms: 6300.0, x: 400.0, y: 255.0 }];
+        let clicks = [
+            Click {
+                t_ms: 3000.0,
+                x: 1900.0,
+                y: 1340.0,
+            },
+            Click {
+                t_ms: 6300.0,
+                x: 400.0,
+                y: 255.0,
+            },
+        ];
         for c in &clicks {
-            events.push(InputEvent { t_ms: c.t_ms as u64, kind: EventKind::Click, x: c.x, y: c.y, button: Some(Button::Left), display: 1 });
+            events.push(InputEvent {
+                t_ms: c.t_ms as u64,
+                kind: EventKind::Click,
+                x: c.x,
+                y: c.y,
+                button: Some(Button::Left),
+                display: 1,
+            });
         }
         events.sort_by_key(|e| e.t_ms);
         let zs = ZoomSettings::default();
@@ -387,10 +439,20 @@ mod tests {
         eprintln!("{blocks:#?}");
         let stats = export(
             &ExportJob {
-                ffmpeg: &ffmpeg, input: &input, src_width: 3024, src_height: 1964, fps: 30,
-                duration_ms: 8000, display_scale: 2.0, events: &events, zoom_blocks: &blocks,
-                zoom_settings: &zs, cursor_settings: &CursorSettings::default(), output: &output,
-                encoder: "libx264", log_dir: input.parent().unwrap(),
+                ffmpeg: &ffmpeg,
+                input: &input,
+                src_width: 3024,
+                src_height: 1964,
+                fps: 30,
+                duration_ms: 8000,
+                display_scale: 2.0,
+                events: &events,
+                zoom_blocks: &blocks,
+                zoom_settings: &zs,
+                cursor_settings: &CursorSettings::default(),
+                output: &output,
+                encoder: "libx264",
+                log_dir: input.parent().unwrap(),
             },
             &mut |_, _| {},
             &AtomicBool::new(false),

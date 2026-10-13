@@ -107,7 +107,11 @@ pub fn cursor_sprite() -> Sprite {
         for x in 0..w {
             let i = y * w + x;
             let sy = y as isize - shift;
-            let sh = if sy >= 0 { shadow[sy as usize * w + x] * 0.35 } else { 0.0 };
+            let sh = if sy >= 0 {
+                shadow[sy as usize * w + x] * 0.35
+            } else {
+                0.0
+            };
             let a_outer = outer[i];
             // Bianco dove c'è il bordo, nero nel corpo; premoltiplicato.
             let white = a_outer - core[i];

@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 
 use rusqlite::Connection;
@@ -17,10 +18,33 @@ pub struct AppState {
     pub last_info: Mutex<Option<DiagnosticInfo>>,
     /// Problemi dell'avvio da mostrare nella home (frasi in italiano).
     pub startup_problems: Vec<String>,
+    /// Encoder H.264 scelto con la prova reale (calcolato alla prima registrazione).
+    pub encoder: Mutex<Option<String>>,
+    /// Registrazione in corso (solo macOS in M1).
+    #[cfg(target_os = "macos")]
+    pub recording: Mutex<Option<Recording>>,
+    pub export_cancel: AtomicBool,
     pub _log_guard: Option<WorkerGuard>,
 }
 
+#[cfg(target_os = "macos")]
+pub struct Recording {
+    pub project_dir: std::path::PathBuf,
+    pub active: crate::capture::macos::ActiveRecording,
+}
+
 impl AppState {
+    pub fn is_recording(&self) -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            self.recording.lock().map(|r| r.is_some()).unwrap_or(false)
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            false
+        }
+    }
+
     /// Stato del database per la diagnostica.
     pub fn db_status(&self) -> db::DbStatus {
         match self.db.lock() {

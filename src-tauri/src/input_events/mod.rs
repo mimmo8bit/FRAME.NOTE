@@ -59,23 +59,23 @@ pub struct DisplayGeometry {
 }
 
 impl DisplayGeometry {
-    pub fn width_px(&self) -> u32 {
+    pub fn width_px(self) -> u32 {
         (self.width_pt * self.scale).round() as u32
     }
 
-    pub fn height_px(&self) -> u32 {
+    pub fn height_px(self) -> u32 {
         (self.height_pt * self.scale).round() as u32
     }
 
     /// Da punti globali a pixel del video.
-    pub fn to_pixels(&self, x_pt: f64, y_pt: f64) -> (f64, f64) {
+    pub fn to_pixels(self, x_pt: f64, y_pt: f64) -> (f64, f64) {
         (
             (x_pt - self.origin_x_pt) * self.scale,
             (y_pt - self.origin_y_pt) * self.scale,
         )
     }
 
-    pub fn contains_point(&self, x_pt: f64, y_pt: f64) -> bool {
+    pub fn contains_point(self, x_pt: f64, y_pt: f64) -> bool {
         x_pt >= self.origin_x_pt
             && y_pt >= self.origin_y_pt
             && x_pt < self.origin_x_pt + self.width_pt
