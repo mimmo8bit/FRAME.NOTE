@@ -3,8 +3,8 @@
 Registratore di schermo con montaggio automatico, video da inviare ai clienti e note delle call
 senza bot. Tutto resta sul computer: nessun cloud, nessun account, nessun abbonamento.
 
-> Stato: **M0** (prima build di prova). L'app si apre e mostra la schermata "Info e diagnostica";
-> la registrazione arriva nelle milestone successive. Dettagli in [`PROGRESS.md`](PROGRESS.md).
+> Stato: **M1** (spike zoom). Oltre a "Info e diagnostica" c'è **Prova zoom**: registra lo schermo
+> del Mac e crea un video con zoom automatici sui clic e cursore smussato. Dettagli in [`PROGRESS.md`](PROGRESS.md).
 
 ## Scaricare la build
 
@@ -23,20 +23,26 @@ Il codice stampato deve essere uguale a quello accanto al nome del file in `SHA2
 
 ## Installare e aprire la prima volta
 
-### macOS (26 Tahoe e precedenti)
+### macOS (13 Ventura o successivo, Apple Silicon)
 FrameNote è firmata con un certificato personale, non con uno Apple a pagamento: la prima volta
-macOS la blocca. È normale e succede una volta sola per ogni nuova versione.
+macOS la blocca. È normale e succede una volta per ogni nuova versione. Tra parentesi i nomi che
+compaiono se il Mac è in inglese.
 
-1. Apri il `.dmg` e trascina **FrameNote** su **Applicazioni**.
-2. Apri FrameNote da Applicazioni. Compare l'avviso "Apple non ha potuto verificare…": premi **Fine**.
-3. Apri **Impostazioni di Sistema → Privacy e sicurezza**, scorri fino in fondo e premi
-   **Apri comunque** accanto a "FrameNote è stata bloccata", poi inserisci la password del Mac.
-4. Conferma con **Apri** nella finestra che compare.
-5. Al primo avvio macOS chiede l'accesso alla cartella **Documenti**: rispondi **Consenti**
-   (lì FrameNote crea `Documenti/FrameNote/Progetti`).
+1. Apri il `.dmg` e trascina **FrameNote** sull'icona **Applicazioni** (*Applications*) nella stessa finestra.
+   Se c'è già una versione precedente scegli **Sostituisci** (*Replace*).
+2. Apri FrameNote da Applicazioni (o con ⌘ + barra spaziatrice, "FrameNote", Invio).
+   Compare l'avviso "Impossibile aprire FrameNote" (*"FrameNote" Not Opened*): premi **Fine** (*Done*).
+3. Apri **Impostazioni di Sistema → Privacy e sicurezza** (*System Settings → Privacy & Security*), scorri
+   fino in fondo e premi **Apri comunque** (*Open Anyway*) accanto a FrameNote, poi inserisci la password del Mac.
+4. Conferma con **Apri** (*Open Anyway*) nella finestra che compare.
+5. Al primo avvio macOS chiede l'accesso alla cartella **Documenti**: rispondi **Consenti** (*Allow*).
+6. Per **Prova zoom** serve il permesso **Registrazione schermo**: FrameNote lo chiede alla prima
+   registrazione. Se non compare la richiesta: Impostazioni di Sistema → Privacy e sicurezza →
+   **Registrazione schermo e audio di sistema** (*Screen & System Audio Recording*) → attiva FrameNote,
+   poi chiudi e riapri l'app.
 
-Dato che la firma è sempre la stessa, i permessi concessi (Documenti oggi; schermo, microfono e
-fotocamera nelle prossime versioni) restano validi anche dopo gli aggiornamenti.
+Dato che la firma è sempre la stessa, i permessi concessi (Documenti, Registrazione schermo; microfono
+e fotocamera nelle prossime versioni) restano validi anche dopo gli aggiornamenti.
 
 ### Windows
 1. Apri il file `.msi`. Se compare "Windows ha protetto il PC" (SmartScreen), premi

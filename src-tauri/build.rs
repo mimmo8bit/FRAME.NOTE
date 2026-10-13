@@ -18,5 +18,13 @@ fn main() {
         .unwrap_or_else(|| "sconosciuto".to_string());
     println!("cargo:rustc-env=FRAMENOTE_COMMIT={commit}");
 
+    // La libreria di cattura (screencapturekit) contiene codice Swift: senza
+    // questo percorso il programma non trova il runtime Swift di sistema
+    // (libswift_Concurrency.dylib) e si chiude all'avvio. Le impostazioni di
+    // collegamento delle dipendenze non arrivano al binario finale.
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
+    }
+
     tauri_build::build()
 }

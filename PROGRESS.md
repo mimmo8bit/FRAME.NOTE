@@ -1,9 +1,32 @@
 # FrameNote — Avanzamento
 
 ## Stato attuale
-- **Milestone completata:** M0 ✅ (verificata da Domenico il 2026-10-13)
-- **Prossima milestone:** M1 — spike zoom (da pianificare in plan mode e far approvare)
+- **Milestone in corso:** M1 — spike zoom: implementato, in attesa della prova di Domenico sulla build `v0.1.0`
+- **Ultima milestone completata:** M0 ✅ (2026-10-13)
 - **Ultima build provata da Domenico:** `v0.0.1` (commit `b91e98a`), macOS 26.6.2, MacBook M1 Pro
+
+## 2026-10-13 — Sessione 1, terza parte: M1 (spike zoom)
+**Fatto**
+- Piano `PIANO_M1.md` approvato. Richiesta di Domenico sulla webcam stile Loom (interruttore, grandezze, colori, animazioni) messa in specifica per M2/M3 (`DECISIONS.md`).
+- Cattura macOS (`capture/macos.rs`): ScreenCaptureKit sullo schermo principale a risoluzione nativa, 30 fps, NV12, cursore escluso, finestre di FrameNote escluse; frame via pipe al sidecar FFmpeg (`h264_videotoolbox`) in MP4 frammentato; ritmo costante con `Pacer`; contatori di frame/drop e CPU.
+- Mouse (`input_events/macos.rs`): posizione e pulsanti a 120 Hz con CoreGraphics, **senza permessi aggiuntivi**; `events.jsonl` nel formato §4 con lo stesso orologio dei frame.
+- Zoom (`render/zoom.rs`): raggruppamento dei clic, isteresi, durata minima, livello 1,5–2×, inquadratura sempre dentro il video, molle critiche deterministiche, telecamera che segue il cursore fuori dalla zona morta.
+- Cursore (`render/cursor.rs`, `render/sprite.rs`): filtro One Euro, ingrandimento 1,5×, dissolvenza dopo 2 s fermo, anello animato sul clic, freccia disegnata in software.
+- Renderer (`render/gpu.rs`, `shaders/compose.wgsl`): compositore wgpu, NV12→RGB BT.709, bicubico in ingrandimento e media a griglia in riduzione; export (`render/export.rs`) FFmpeg → GPU → FFmpeg con avanzamento e annullamento.
+- Progetto (`project/`): cartella `AAAA-MM-GG_HHMM_prova-zoom/`, `project.json` v1 con blocchi zoom, impostazioni cursore, report della registrazione ed export.
+- Schermata "Prova zoom (M1)": permesso, registrazione con timer e clic, zoom calcolati, report, export con avanzamento, apri/mostra il video.
+- macOS minimo portato a 13.0; versione 0.1.0. CI: renderer e pipeline di export provati su GPU software (lavapipe) in Linux; clippy anche su macOS per il codice di cattura.
+
+**Verificato (ambiente cloud e CI)**
+- 56 test Rust (logica, pixel del renderer su GPU software, export completo con FFmpeg reale) e 16 test frontend verdi; clippy pulito su Linux.
+- Prova visiva di export da una "schermata" sintetica 3024×1964: testo nitido a 1× e 2×, cursore e anello corretti.
+- Il codice di cattura macOS compila in CI (macOS runner).
+
+**Non ancora verificato**
+- La cattura reale (permesso, ScreenCaptureKit, mouse) si può provare solo sul Mac di Domenico.
+
+**Prossimo passo**
+- Release `v0.1.0`, prova di Domenico: video di 30 s con 5 clic, giudizio su fluidità degli zoom, cursore e nitidezza; report nella diagnostica.
 
 ## 2026-10-13 — Chiusura di M0: prova di Domenico
 **Verificato da Domenico su macOS 26.6.2 (M1 Pro, 16 GB)**
@@ -19,7 +42,7 @@
 **Note per le prossime milestone**
 - Su macOS in inglese i pulsanti sono "Done" e "Open Anyway"; il README li riporta in italiano: da allineare quando si aggiorna il README.
 - Il sistema compare come "Darwin macOS 26.6.2 Tahoe": dettaglio estetico della diagnostica.
-- "Esporta diagnostica" non è ancora stato provato sul Mac.
+- "Esporta diagnostica" verificato da Domenico: lo zip contiene solo `info.json` e il log, percorsi anonimizzati, nessun errore nel log. Spazio libero sul Mac ≈ 30 GB, RAM 16 GB (≈ 6 GB liberi durante la prova).
 
 ## 2026-10-13 — Sessione 1, seconda parte: CI reale
 **Fatto e verificato su GitHub Actions**

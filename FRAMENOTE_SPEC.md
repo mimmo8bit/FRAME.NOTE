@@ -129,6 +129,7 @@ Ogni modulo è "finito" solo quando i criteri sono verificati su una build insta
 ### 5.1 Registrazione
 - Sorgenti: schermo intero, finestra, area, singola app. Multi-monitor.
 - Webcam, microfono, audio di sistema: attivabili singolarmente, su tracce separate.
+- **Fotocamera stile Loom:** prima di registrare, interruttore "Mostra fotocamera" con anteprima live e scelta della fotocamera; la webcam va sempre su traccia separata, quindi si può togliere anche dopo (richiesta di Domenico, 2026-10-13).
 - **Anteprima live obbligatoria** della sorgente nella barra REC prima di avviare.
 - Indicatore livello microfono in tempo reale.
 - Conto alla rovescia 3 s, pausa/ripresa, stop, annulla. Scorciatoie globali configurabili (default `Alt+Shift+R` / `⌥⇧R` avvio-stop, `Alt+Shift+P` pausa).
@@ -145,6 +146,10 @@ Ogni modulo è "finito" solo quando i criteri sono verificati su una build insta
 - **Taglio silenzi** (soglia e durata configurabili) e **intercalari** dalla trascrizione; lista italiana di default: "ehm", "ehmm", "uhm", "cioè", "allora", "diciamo", "praticamente", "tipo", "insomma", "vabbè". Tagli reversibili.
 - **Audio:** riduzione rumore e normalizzazione a -16 LUFS, separate per mic e sistema.
 - **Webcam:** bolla spostabile e ridimensionabile, sfondo sfocato o rimosso, si sposta se copre lo zoom attivo.
+  - Grandezze preimpostate (Piccola, Media, Grande) più ridimensionamento libero; forme cerchio, quadrato arrotondato, rettangolo verticale; posizione negli angoli o libera.
+  - Bordo con colori preimpostati, personalizzati o del brand kit, spessore regolabile.
+  - Animazioni a scelta, spente di default e con intensità regolabile, mai fastidiose: "Respiro" (pulsazione lenta), "Galleggia" (leggero su e giù), "Reagisce alla voce" (lieve vibrazione o pulsazione col volume del microfono), ingresso/uscita con piccolo rimbalzo.
+  - Tutto non distruttivo: modificabile dopo la registrazione (richiesta di Domenico, 2026-10-13; base in M2, colori e animazioni in M3).
 - **Look:** sfondo, padding, angoli, ombra, cornice; preset salvabili come **brand kit** (logo, colori, font).
 - **Sottotitoli** dalla trascrizione, stile personalizzabile, bruciati o in SRT.
 - **Reframe social:** 16:9, 9:16, 1:1 seguendo lo zoom attivo.

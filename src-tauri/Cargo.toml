@@ -1,6 +1,6 @@
 [package]
 name = "framenote"
-version = "0.0.1"
+version = "0.1.0"
 description = "FrameNote: registrazione schermo, video per i clienti e note delle call, tutto in locale"
 authors = ["Domenico"]
 edition = "2021"
@@ -28,8 +28,12 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 zip = { version = "9", default-features = false, features = ["deflate"] }
 sysinfo = "0.39"
 wgpu = "30"
+bytemuck = { version = "1", features = ["derive"] }
 pollster = "0.4"
 time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+screencapturekit = "11"
 
 [dev-dependencies]
 tempfile = "3"

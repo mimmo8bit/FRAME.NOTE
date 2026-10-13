@@ -75,3 +75,14 @@ Registro delle decisioni di progetto. Ogni voce: data, decisione, motivo, altern
 ## 2026-10-13 — Release anche dal pulsante "Run workflow"
 - **Decisione:** `build.yml` avviato a mano su `main` con l'opzione **Pubblica** crea da solo tag e pre-release `v<versione di tauri.conf.json>`. Il push di un tag `v*` resta valido.
 - **Motivo:** dalle sessioni cloud di Claude il push di tag su GitHub è rifiutato (403): si può fare push solo sul branch di lavoro. Così la release si pubblica senza tag a mano. La firma con il certificato è obbligatoria anche in questo caso, e una release già esistente non viene mai sovrascritta.
+
+## 2026-10-13 — Webcam stile Loom: in M2 e M3
+- **Decisione:** su richiesta di Domenico la bolla della fotocamera avrà interruttore prima della registrazione, grandezze, forme, colori del bordo e animazioni leggere a scelta (dettagli in §5.1 e §5.2 della specifica). Arriva in **M2** (interruttore, traccia separata, bolla di base) e **M3** (colori, animazioni, sfondo). M1 resta solo zoom e cursore.
+- **Motivo:** M1 è uno spike per verificare la qualità degli zoom; la webcam arriva insieme alla registrazione completa e ai suoi permessi (fotocamera, microfono). Il renderer di M1 è costruito a livelli per accoglierla senza rifacimenti.
+
+## 2026-10-13 — Scelte tecniche di M1 (spike zoom)
+- **Solo macOS:** su Windows la build compila e la schermata spiega che la registrazione arriva più avanti; la cattura Windows entra in M2.
+- **macOS minimo 13.0** (prima 12.3): lo richiede il crate `screencapturekit` 11.
+- **Mouse letto con CoreGraphics** (`CGEventGetLocation`, `CGEventSourceButtonState`) a 120 Hz, senza permessi aggiuntivi. Scartato `device_query`: su macOS pretende il permesso Accessibilità e va in panic se manca.
+- **Cattura → FFmpeg via pipe** (NV12, risoluzione nativa, 30 fps a frame rate costante); i tempi dei frame (host time di ScreenCaptureKit) e degli eventi del mouse usano lo stesso orologio di sistema. Se CPU o drop risultano troppo alti, in M2 si passa alla codifica in-process (VideoToolbox/AVAssetWriter).
+- **Cursore sempre a freccia** nello spike; le forme reali in M3.
