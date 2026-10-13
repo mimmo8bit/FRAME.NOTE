@@ -1,8 +1,12 @@
+mod capture;
 mod commands;
 mod diagnostics;
 mod encoder;
+mod input_events;
 mod library;
 mod paths;
+mod project;
+mod render;
 mod state;
 
 use std::sync::Mutex;

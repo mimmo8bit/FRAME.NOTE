@@ -31,7 +31,7 @@ I file finiscono in `Documenti/FrameNote/Progetti/AAAA-MM-GG_HHMM_prova-zoom/`, 
 - **Permesso:** prima di registrare controllo `CGPreflightScreenCaptureAccess`; se manca lo chiedo con `CGRequestScreenCaptureAccess` e mostro come abilitarlo. Grazie alla firma stabile di M0, il permesso concesso resta valido anche con le versioni successive.
 
 ## 3. Mouse: posizione e clic (`events.jsonl`)
-- **Crate `device_query`:** lettura della posizione e dei pulsanti del mouse 120 volte al secondo, su un thread dedicato.
+- **CoreGraphics** (`CGEventGetLocation`, `CGEventSourceButtonState`): lettura della posizione e dei pulsanti del mouse 120 volte al secondo, su un thread dedicato. (Il crate `device_query` è stato scartato: su macOS pretende il permesso Accessibilità.)
   Su macOS **non serve nessun permesso aggiuntivo** (niente "Monitoraggio input" o "Accessibilità"). La tastiera, che quel permesso lo richiede, arriva in M2.
 - Formato §4: `{"t_ms":…, "type":"move"|"click", "x":…, "y":…, "button":"left", "display":…}`.
   Coordinate convertite da punti di macOS a **pixel del video** (fattore Retina e origine dello schermo).
@@ -111,7 +111,7 @@ cosa manca. Il motore degli zoom e il renderer sono già multipiattaforma; la ca
   - `project/{mod.rs, schema.rs}` (cartella progetto + `project.json` v1)
   - comandi nuovi in `commands.rs`
 - **Frontend:** `src/windows/ProvaZoom.tsx` e un pulsante nella Home.
-- **Crate nuovi:** `screencapturekit` (solo macOS), `device_query`, `bytemuck`; `wgpu` c'è già.
+- **Crate nuovi:** `screencapturekit` (solo macOS), `bytemuck`; `wgpu` c'è già. Mouse con CoreGraphics, senza crate aggiuntivi.
 - **Configurazione:** macOS minimo da 12.3 a **13.0**, richiesto da `screencapturekit`; il tuo Mac ha 26.6.
   Lo annoto in `DECISIONS.md`.
 
