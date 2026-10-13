@@ -59,10 +59,12 @@ pub struct DisplayGeometry {
 }
 
 impl DisplayGeometry {
+    #[cfg(test)]
     pub fn width_px(self) -> u32 {
         (self.width_pt * self.scale).round() as u32
     }
 
+    #[cfg(test)]
     pub fn height_px(self) -> u32 {
         (self.height_pt * self.scale).round() as u32
     }
