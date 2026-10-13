@@ -1138,6 +1138,7 @@ dependencies = [
 name = "framenote"
 version = "0.0.1"
 dependencies = [
+ "bytemuck",
  "pollster",
  "rusqlite",
  "serde",
