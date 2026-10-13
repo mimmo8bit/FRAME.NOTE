@@ -1,0 +1,141 @@
+name: FFmpeg sidecar
+
+# Prepara i binari FFmpeg LGPL e li pubblica una sola volta nella release
+# $FFMPEG_RELEASE_TAG (scripts/ffmpeg.env). Se la release esiste già non fa nulla.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: Release FFmpeg presente?
+    runs-on: ubuntu-latest
+    outputs:
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source scripts/ffmpeg.env
+          if gh release view "$FFMPEG_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $FFMPEG_RELEASE_TAG già presente"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release $FFMPEG_RELEASE_TAG da creare"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  macos:
+    name: Compila FFmpeg per macOS arm64
+    needs: check
+    if: needs.check.outputs.exists != 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: scripts/build-ffmpeg.sh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-macos
+          path: out/
+          retention-days: 3
+
+  windows:
+    name: Prepara FFmpeg per Windows x64 (BtbN, LGPL)
+    needs: check
+    if: needs.check.outputs.exists != 'true'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source scripts/ffmpeg.env
+          mkdir -p dl out
+          zip="ffmpeg-n${FFMPEG_SERIES}-latest-win64-lgpl-${FFMPEG_SERIES}.zip"
+          gh release download latest --repo BtbN/FFmpeg-Builds --dir dl \
+            --pattern "$zip" --pattern checksums.sha256
+          expected=$(awk -v n="$zip" '$2 == n || $2 == "*"n { print $1 }' dl/checksums.sha256)
+          actual=$(sha256sum "dl/$zip" | awk '{print $1}')
+          if [[ -z "$expected" || "$expected" != "$actual" ]]; then
+            echo "::error::checksum di $zip non verificato (atteso '$expected', trovato '$actual')"; exit 1
+          fi
+          echo "SHA256 di $zip verificato: $actual"
+          unzip -q "dl/$zip" -d dl/x
+          exe=$(find dl/x -path '*/bin/ffmpeg.exe' | head -n1)
+          [[ -n "$exe" ]] || { echo "::error::ffmpeg.exe non trovato nello zip"; exit 1; }
+          lic=$(find dl/x -maxdepth 2 -name 'LICENSE*' | head -n1)
+          bin=out/ffmpeg-x86_64-pc-windows-msvc.exe
+          cp "$exe" "$bin"
+          [[ -n "$lic" ]] && cp "$lic" out/LICENSE-BtbN-windows.txt
+          license=$("$bin" -hide_banner -L)
+          grep -q "GNU Lesser General Public" <<<"$license" \
+            || { echo "::error::la build per Windows non è LGPL"; exit 1; }
+          {
+            echo "FFmpeg serie $FFMPEG_SERIES per x86_64-pc-windows-msvc"
+            echo "Origine: https://github.com/BtbN/FFmpeg-Builds release 'latest', file $zip"
+            echo "SHA256 dello zip: $actual"
+            echo
+            "$bin" -hide_banner -version
+            echo
+            echo "Encoder:"
+            "$bin" -hide_banner -encoders
+          } > out/BUILD_INFO-windows.txt
+          head -n 8 out/BUILD_INFO-windows.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-windows
+          path: out/
+          retention-days: 3
+
+  publish:
+    name: Pubblica la release FFmpeg
+    needs: [check, macos, windows]
+    if: needs.check.outputs.exists != 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ffmpeg-publish
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source scripts/ffmpeg.env
+          if gh release view "$FFMPEG_RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release già creata da un'altra esecuzione"; exit 0
+          fi
+          cd art
+          ls -la
+          sha256sum ffmpeg-aarch64-apple-darwin ffmpeg-x86_64-pc-windows-msvc.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cat > notes.md <<NOTES
+          Binari FFmpeg $FFMPEG_VERSION (licenza LGPL v2.1+) inclusi come sidecar in FrameNote.
+          Non sono un'app da installare: la CI li scarica da qui e li mette nei pacchetti.
+
+          - **macOS arm64:** compilato dai sorgenti ufficiali (\`ffmpeg-$FFMPEG_VERSION.tar.xz\`, allegato) con \`scripts/build-ffmpeg.sh\`. Configurazione in \`BUILD_INFO-macos.txt\`.
+          - **Windows x64:** build \`win64-lgpl\` serie $FFMPEG_SERIES di BtbN/FFmpeg-Builds. Configurazione in \`BUILD_INFO-windows.txt\`.
+          - Licenza: \`COPYING.LGPLv2.1\`.
+          NOTES
+          files=(ffmpeg-aarch64-apple-darwin ffmpeg-x86_64-pc-windows-msvc.exe SHA256SUMS.txt
+                 BUILD_INFO-macos.txt BUILD_INFO-windows.txt COPYING.LGPLv2.1
+                 "ffmpeg-$FFMPEG_VERSION.tar.xz")
+          [[ -f LICENSE-BtbN-windows.txt ]] && files+=(LICENSE-BtbN-windows.txt)
+          gh release create "$FFMPEG_RELEASE_TAG" \
+            --title "FFmpeg $FFMPEG_VERSION LGPL (sidecar)" \
+            --notes-file notes.md \
+            --target "$GITHUB_SHA" \
+            --latest=false \
+            "${files[@]}"
