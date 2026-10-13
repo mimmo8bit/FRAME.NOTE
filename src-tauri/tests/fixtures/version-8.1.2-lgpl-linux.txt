@@ -1,0 +1,12 @@
+ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers
+built with gcc 13 (Ubuntu 13.3.0-6ubuntu2~24.04.1)
+configuration: --prefix=/tmp/claude-0/ff/out --disable-autodetect --disable-gpl --disable-nonfree --disable-network --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-static --disable-shared --enable-zlib
+libavutil      60. 26.102 / 60. 26.102
+libavcodec     62. 28.102 / 62. 28.102
+libavformat    62. 12.102 / 62. 12.102
+libavdevice    62.  3.102 / 62.  3.102
+libavfilter    11. 14.102 / 11. 14.102
+libswscale      9.  5.102 /  9.  5.102
+libswresample   6.  3.102 /  6.  3.102
+
+Exiting with exit code 0
