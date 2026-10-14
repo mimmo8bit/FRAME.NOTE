@@ -2,8 +2,20 @@
 
 ## Stato attuale
 - **Milestone in corso:** M1 — spike zoom: implementato, in attesa della prova di Domenico sulla build `v0.1.0`
+- **In parallelo:** layer "Sicurezza e privacy" — piano `PIANO_SICUREZZA.md` in attesa di approvazione
 - **Ultima milestone completata:** M0 ✅ (2026-10-13)
 - **Ultima build provata da Domenico:** `v0.0.1` (commit `b91e98a`), macOS 26.6.2, MacBook M1 Pro
+
+## 2026-10-14 — Release v0.1.0 e piano di sicurezza
+**Fatto**
+- Release `v0.1.0` pubblicata (run Build #6, commit `17c2f62`): `.dmg`, `.msi`, `SHA256SUMS.txt`. Requisito designato
+  identico a `v0.0.1` (`certificate leaf = H"21823567a97f4321ad26c27b50832eeb3c91ef2d"`), anche per il sidecar FFmpeg.
+- Richiesta di Domenico: un layer di sicurezza perché i dati non escano se non necessario. Analisi delle vie d'uscita
+  e piano in `PIANO_SICUREZZA.md` (fase A subito, fase B come regole per le milestone successive).
+
+**In attesa di Domenico**
+1. Prova di M1 sulla `v0.1.0` (passi in chat).
+2. Approvazione di `PIANO_SICUREZZA.md` e decisioni D1 (cartella progetti) e D2 (esclusioni dalla registrazione).
 
 ## 2026-10-13 — Sessione 1, terza parte: M1 (spike zoom)
 **Fatto**
