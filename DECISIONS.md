@@ -94,8 +94,10 @@ Registro delle decisioni di progetto. Ogni voce: data, decisione, motivo, altern
   solo blocco, anche se sono in punti lontani; in quel caso il livello resta al minimo (1,5×) invece di tornare a 1×. Con clic
   frequenti la ripresa resta zoomata a lungo e insegue il cursore.
 - **Subito (correzione di M1, `v0.1.1`, da approvare):** regola esplicita "torna a schermo intero dopo N s senza clic"
-  (predefinito 2 s, regolabile 1–5 s): nessuna fusione scavalca una pausa più lunga di N s; i clic che a 1,5× non stanno
-  nell'inquadratura non si fondono più in uno zoom unico. Nella schermata "Prova zoom": impostazione + **Ricalcola zoom** sulla
+  (predefinito 2 s, regolabile 1–5 s): nessuna fusione scavalca una pausa più lunga di N s; se i clic ravvicinati sono sparsi
+  e a 1,5× non stanno nell'inquadratura, la ripresa resta a schermo intero invece di zoomare e inseguire il cursore.
+- **Confermato dalla diagnostica** della prova (2026-10-15): 22 clic in 34 s → un solo zoom di 25 s a 1,5× con 20 clic, più uno
+  finale da 2 clic; la ripresa non è mai tornata a 1×. Nella schermata "Prova zoom": impostazione + **Ricalcola zoom** sulla
   stessa registrazione, senza registrare di nuovo.
 - **M2:** riquadro tratteggiato in sovrimpressione durante la registrazione, escluso dalla cattura (le finestre di FrameNote lo sono
   già) e trasparente ai clic. Usa la versione "in tempo reale" del motore zoom: l'export può anticipare lo zoom di 0,4 s rispetto

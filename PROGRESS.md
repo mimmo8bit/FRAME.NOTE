@@ -12,6 +12,13 @@
   finirà nel video. Causa individuata nel motore (fusione dei clic ravvicinati, livello minimo 1,5×): proposta di correzione
   per `v0.1.1` e riquadro in M2 (`DECISIONS.md`).
 
+**Diagnostica della prova di M1 (v0.1.0, macOS 26.6.2)**
+- Registrazione di 34 s a **3456×2234** (lo schermo di Domenico è da 16", non da 14" come ipotizzato in `PIANO_M1.md`), 30 fps,
+  `h264_videotoolbox`: 1021 frame scritti, **2 persi** su 987 ricevuti, 2522 eventi del mouse, 22 clic.
+- CPU del processo di cattura 24,6% di un core in media (2,5% del totale). Export 1920×1242 in 13,8 s (2,5× il tempo reale) su
+  Apple M1 Pro (Metal). Nessun errore nei log; il primo avvio ha chiesto il permesso e l'app è stata riaperta, come previsto.
+- Zoom: 22 clic → un blocco di 25 s a 1,5× (20 clic) + uno finale: conferma la causa del mancato ritorno a 1×.
+
 **Messo in coda** (`DECISIONS.md`, `FRAMENOTE_SPEC.md` §5.1, §5.2, §5.5, §7)
 - Icona nella barra dei menu con menu di controllo rapido (M2; bolla M3; trascrizione M4).
 - Trascrizione on/off (M4); trascrizione in diretta in valutazione, stima dell'impatto data a Domenico.
