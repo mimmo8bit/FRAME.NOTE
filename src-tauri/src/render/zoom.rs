@@ -254,7 +254,13 @@ struct Planned {
 }
 
 impl Planned {
-    fn new(clicks: Vec<Click>, s: &ZoomSettings, width: f64, height: f64, duration_ms: f64) -> Self {
+    fn new(
+        clicks: Vec<Click>,
+        s: &ZoomSettings,
+        width: f64,
+        height: f64,
+        duration_ms: f64,
+    ) -> Self {
         Self {
             block: block_from_clicks(&clicks, s, width, height, duration_ms),
             clicks,

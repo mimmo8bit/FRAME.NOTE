@@ -21,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: scripts/check-version.sh
+      - name: Nessuna registrazione, diagnostica o chiave nel repository
+        run: scripts/check-repo-privacy.sh
 
   frontend:
     name: Frontend (tsc, vitest, build)
@@ -32,6 +34,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Vulnerabilità note nelle librerie dell'interfaccia
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
@@ -58,6 +62,8 @@ jobs:
           cache: npm
       # generate_context! legge la cartella dist del frontend.
       - run: npm ci && npm run build
+      - name: Guardiano della rete (nessun componente di rete nell'app)
+        run: scripts/check-no-network.sh
       - run: cargo fmt --check
         working-directory: src-tauri
       - run: cargo clippy --all-targets --locked -- -D warnings
@@ -68,6 +74,13 @@ jobs:
           FRAMENOTE_TEST_FFMPEG: /usr/bin/ffmpeg
           # Renderer e pipeline di export provati davvero sulla GPU software.
           FRAMENOTE_REQUIRE_GPU: "1"
+      # Vulnerabilità note (RustSec) nelle librerie Rust: il binario resta nella
+      # cache di rust-cache, quindi l'installazione si paga una volta sola.
+      - name: Vulnerabilità note nelle librerie Rust
+        working-directory: src-tauri
+        run: |
+          command -v cargo-audit >/dev/null || cargo install cargo-audit --locked
+          cargo audit
 
   rust-macos:
     name: Rust su macOS (clippy, test)
@@ -91,5 +104,14 @@ jobs:
       # Il codice di cattura (ScreenCaptureKit) si compila solo qui: clippy lo controlla.
       - run: cargo clippy --all-targets --locked -- -D warnings
         working-directory: src-tauri
+      # I test con FFmpeg vero usano lo stesso sidecar che va nel pacchetto
+      # (FFmpeg 8.1.2 LGPL senza rete): così i comandi generati dall'app
+      # vengono provati con il binario reale.
+      - name: Sidecar FFmpeg per i test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/fetch-ffmpeg.sh aarch64-apple-darwin
       - run: cargo test --locked
         working-directory: src-tauri
+        env:
+          FRAMENOTE_TEST_FFMPEG: ${{ github.workspace }}/src-tauri/binaries/ffmpeg-aarch64-apple-darwin

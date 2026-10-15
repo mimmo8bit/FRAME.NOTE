@@ -3,6 +3,17 @@
 
 use std::path::Path;
 
+/// FFmpeg può leggere e scrivere solo file locali e pipe (`fd` è il protocollo
+/// che FFmpeg 7+ usa per `-`): qualsiasi indirizzo
+/// di rete viene rifiutato, anche con la build Windows che include la rete.
+/// Va messo prima di ogni `-i` (ingresso) e prima del file di uscita.
+pub const LOCAL_ONLY: [&str; 2] = ["-protocol_whitelist", "file,pipe,fd"];
+
+/// Percorso di uscita esplicito come file locale (mai interpretato come protocollo).
+pub fn local_output(path: &Path) -> String {
+    format!("file:{}", path.display())
+}
+
 /// Qualità in bit per pixel per frame: la sorgente della registrazione è più
 /// generosa perché verrà ingrandita dagli zoom.
 pub const CAPTURE_BPP: f64 = 0.12;
@@ -75,12 +86,9 @@ pub fn capture_encoder_args(
     .map(|s| s.to_string())
     .collect();
     a.push(format!("{width}x{height}"));
-    a.extend([
-        "-framerate".into(),
-        fps.to_string(),
-        "-i".into(),
-        "-".into(),
-    ]);
+    a.extend(["-framerate".into(), fps.to_string()]);
+    a.extend(LOCAL_ONLY.iter().map(|s| s.to_string()));
+    a.extend(["-i".into(), "-".into()]);
     a.extend(["-c:v".into(), encoder.to_string()]);
     a.extend(quality_args(
         encoder,
@@ -94,8 +102,9 @@ pub fn capture_encoder_args(
         "-f".into(),
         "mp4".into(),
         "-y".into(),
-        output.display().to_string(),
     ]);
+    a.extend(LOCAL_ONLY.iter().map(|s| s.to_string()));
+    a.push(local_output(output));
     a
 }
 
@@ -106,8 +115,10 @@ pub fn decoder_args(input: &Path) -> Vec<String> {
         "-nostdin".into(),
         "-loglevel".into(),
         "error".into(),
+        LOCAL_ONLY[0].into(),
+        LOCAL_ONLY[1].into(),
         "-i".into(),
-        input.display().to_string(),
+        format!("file:{}", input.display()),
         "-an".into(),
         "-f".into(),
         "rawvideo".into(),
@@ -138,6 +149,8 @@ pub fn export_encoder_args(
         format!("{width}x{height}"),
         "-framerate".into(),
         fps.to_string(),
+        LOCAL_ONLY[0].into(),
+        LOCAL_ONLY[1].into(),
         "-i".into(),
         "-".into(),
         "-vf".into(),
@@ -157,8 +170,9 @@ pub fn export_encoder_args(
         "-f".into(),
         "mp4".into(),
         "-y".into(),
-        output.display().to_string(),
     ]);
+    a.extend(LOCAL_ONLY.iter().map(|s| s.to_string()));
+    a.push(local_output(output));
     a
 }
 
@@ -174,6 +188,55 @@ pub fn output_size(src_w: u32, src_h: u32, max_long: u32) -> (u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Ogni ingresso e ogni uscita hanno il blocco della rete subito prima.
+    fn assert_local_only(a: &[String]) {
+        let guarded = |i: usize| i >= 2 && a[i - 2] == LOCAL_ONLY[0] && a[i - 1] == LOCAL_ONLY[1];
+        let inputs: Vec<usize> = (0..a.len()).filter(|&i| a[i] == "-i").collect();
+        assert!(!inputs.is_empty());
+        for i in inputs {
+            assert!(guarded(i), "ingresso senza blocco: {a:?}");
+            assert!(a[i + 1] == "-" || a[i + 1].starts_with("file:"), "{a:?}");
+        }
+        let out = a.len() - 1;
+        assert!(
+            a[out] == "-" || (a[out].starts_with("file:") && guarded(out)),
+            "{a:?}"
+        );
+    }
+
+    #[test]
+    fn ffmpeg_solo_file_locali_e_pipe() {
+        let p = Path::new("/p/c.mp4");
+        assert_local_only(&capture_encoder_args(
+            3024,
+            1964,
+            30,
+            "h264_videotoolbox",
+            p,
+        ));
+        assert_local_only(&decoder_args(p));
+        assert_local_only(&export_encoder_args(1920, 1246, 30, "libx264", p));
+        assert_eq!(local_output(p), "file:/p/c.mp4");
+    }
+
+    /// Con un FFmpeg reale (in CI quello di sistema, che ha la rete): gli
+    /// indirizzi di rete vengono rifiutati prima di qualsiasi connessione.
+    #[test]
+    fn ffmpeg_reale_rifiuta_la_rete() {
+        let Some(ffmpeg) = std::env::var_os("FRAMENOTE_TEST_FFMPEG") else {
+            return;
+        };
+        let out = std::process::Command::new(ffmpeg)
+            .args(["-hide_banner", "-nostdin"])
+            .args(LOCAL_ONLY)
+            .args(["-i", "http://127.0.0.1:9/x.mp4", "-f", "null", "-"])
+            .output()
+            .unwrap();
+        assert!(!out.status.success());
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("not on whitelist"), "{err}");
+    }
 
     #[test]
     fn dimensioni_di_uscita() {
@@ -195,7 +258,7 @@ mod tests {
             bitrate(3024, 1964, 30, CAPTURE_BPP)
         )));
         assert!(s.contains("+frag_keyframe+empty_moov"));
-        assert!(s.ends_with("-y /p/c.mp4"));
+        assert!(s.ends_with("-y -protocol_whitelist file,pipe,fd file:/p/c.mp4"));
     }
 
     #[test]

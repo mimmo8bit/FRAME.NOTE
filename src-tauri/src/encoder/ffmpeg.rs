@@ -190,6 +190,8 @@ pub fn probe_encoder(
         "-nostdin",
         "-loglevel",
         "error",
+        super::pipe::LOCAL_ONLY[0],
+        super::pipe::LOCAL_ONLY[1],
         "-f",
         "lavfi",
         "-i",

@@ -14,6 +14,7 @@ mod paths;
 mod project;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod render;
+mod security;
 mod state;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod zoom_commands;
@@ -102,6 +103,7 @@ fn init_state(app: &AppHandle) -> AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(security::navigation_guard())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
