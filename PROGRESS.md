@@ -23,12 +23,19 @@
   `npm audit` senza vulnerabilità.
 - Zoom: 7 test nuovi, tra cui lo scenario della prova di Domenico (22 clic sparsi in 34 s → nessuno zoom).
 
+**Verificato in CI (branch, commit `c7d2b21`: Test #16 e Build #8 verdi)**
+- macOS: clippy del codice di cattura con le esclusioni; tutti i test con il sidecar FFmpeg 8.1.2 vero, compresi
+  l'export completo e il rifiuto degli indirizzi di rete (il sidecar non ha proprio i protocolli di rete).
+- App firmata con Hardened Runtime (`flags=0x10000(runtime)`) avviata davvero sul runner: `FRAMENOTE_SMOKE_OK`.
+- Requisito designato identico a `v0.0.1`/`v0.1.0` (`certificate leaf = H"21823567a97f4321ad26c27b50832eeb3c91ef2d"`).
+- `.dmg` e `.msi` prodotti; guardiano della rete, `cargo audit`, `npm audit`, controllo del repository verdi.
+
 **Non ancora verificato**
-- Codice macOS (esclusioni dalla cattura, FileVault, firma) compilato solo in CI; comportamento reale sul Mac.
+- Comportamento reale sul Mac: esclusione di notifiche e password manager, FileVault, spostamento dei progetti.
 
 **Prossimo passo**
-- CI verde, release `v0.1.1`, prova di Domenico: Ricalcola sulla registrazione di prova, nuova registrazione con
-  notifica, schermata Privacy e sicurezza, diagnostica.
+- Unione su `main` e release `v0.1.1`; prova di Domenico: Ricalcola sulla registrazione di prova, nuova registrazione
+  con notifica, schermata Privacy e sicurezza, diagnostica.
 
 ## 2026-10-15 — Feedback di Domenico sugli zoom e nuove richieste
 **Feedback su M1**
