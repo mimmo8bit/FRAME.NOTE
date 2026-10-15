@@ -3,8 +3,9 @@
 Registratore di schermo con montaggio automatico, video da inviare ai clienti e note delle call
 senza bot. Tutto resta sul computer: nessun cloud, nessun account, nessun abbonamento.
 
-> Stato: **M1** (spike zoom). Oltre a "Info e diagnostica" c'è **Prova zoom**: registra lo schermo
-> del Mac e crea un video con zoom automatici sui clic e cursore smussato. Dettagli in [`PROGRESS.md`](PROGRESS.md).
+> Stato: **M1** (spike zoom) + protezione dei dati. **Prova zoom** registra lo schermo del Mac e crea un
+> video con zoom automatici sui clic e cursore smussato; **Privacy e sicurezza** mostra come sono protetti
+> i tuoi dati. Dettagli in [`PROGRESS.md`](PROGRESS.md).
 
 ## Scaricare la build
 
@@ -35,14 +36,13 @@ compaiono se il Mac è in inglese.
 3. Apri **Impostazioni di Sistema → Privacy e sicurezza** (*System Settings → Privacy & Security*), scorri
    fino in fondo e premi **Apri comunque** (*Open Anyway*) accanto a FrameNote, poi inserisci la password del Mac.
 4. Conferma con **Apri** (*Open Anyway*) nella finestra che compare.
-5. Al primo avvio macOS chiede l'accesso alla cartella **Documenti**: rispondi **Consenti** (*Allow*).
-6. Per **Prova zoom** serve il permesso **Registrazione schermo**: FrameNote lo chiede alla prima
+5. Per **Prova zoom** serve il permesso **Registrazione schermo**: FrameNote lo chiede alla prima
    registrazione. Se non compare la richiesta: Impostazioni di Sistema → Privacy e sicurezza →
    **Registrazione schermo e audio di sistema** (*Screen & System Audio Recording*) → attiva FrameNote,
    poi chiudi e riapri l'app.
 
-Dato che la firma è sempre la stessa, i permessi concessi (Documenti, Registrazione schermo; microfono
-e fotocamera nelle prossime versioni) restano validi anche dopo gli aggiornamenti.
+Dato che la firma è sempre la stessa, i permessi concessi (Registrazione schermo; microfono e fotocamera
+nelle prossime versioni) restano validi anche dopo gli aggiornamenti.
 
 ### Windows
 1. Apri il file `.msi`. Se compare "Windows ha protetto il PC" (SmartScreen), premi
@@ -56,12 +56,30 @@ Se qualcosa non va, la diagnostica è il modo più rapido per capire cosa succed
 2. Premi **Esporta diagnostica** e salva il file `.zip` (per esempio sulla Scrivania).
 3. Allegalo in chat. In alternativa basta uno screenshot della schermata.
 
-Lo zip contiene solo: i dati della schermata (`info.json`), i log dell'app e il `project.json`
-dell'ultimo progetto se esiste. **Mai video, audio o note.** I percorsi hanno il nome utente
-sostituito da `~`.
+Prima di salvarlo FrameNote mostra l'elenco esatto dei file. Lo zip contiene solo: i dati della
+schermata (`info.json`), lo stato della protezione (`privacy.json`), i log dell'app e il `project.json`
+dell'ultimo progetto senza titolo. **Mai video, audio, note o movimenti del mouse.** Il nome utente
+diventa `~` e i nomi delle cartelle dei progetti diventano `progetto-1`, `progetto-2`…
+
+## Privacy e sicurezza
+I tuoi dati non escono dal computer. In FrameNote, **Privacy e sicurezza** mostra lo stato di ogni
+protezione e cosa fare se qualcosa va sistemato:
+- **Nessuna connessione a internet:** l'app non contiene componenti di rete (un controllo automatico
+  blocca ogni build che ne includa uno) e FFmpeg può usare solo file sul computer.
+- **Cartella dei progetti fuori dal cloud:** `~/FrameNote/Progetti`, che iCloud "Scrivania e Documenti"
+  e OneDrive non sincronizzano. Le cartelle sono leggibili solo dal tuo utente ed escluse da Spotlight.
+- **Fuori dai video:** finestre di FrameNote, banner delle notifiche e password manager (Password,
+  Accesso Portachiavi, 1Password, Bitwarden, Dashlane, LastPass, KeePassXC, Proton Pass, Enpass),
+  anche se li apri durante la registrazione.
+- **Cifratura del disco:** la schermata controlla che FileVault sia attivo e spiega come attivarlo.
+- **App protetta:** firma stabile con Hardened Runtime, così nessun altro programma può inserirsi in
+  FrameNote e usarne il permesso di registrare lo schermo.
+
+Il piano completo è in [`PIANO_SICUREZZA.md`](PIANO_SICUREZZA.md).
 
 ## Dove sono i file
-- Progetti: `Documenti/FrameNote/Progetti/`
+- Progetti: `~/FrameNote/Progetti/` (la tua cartella Inizio; fino alla versione 0.1.0 erano in
+  `Documenti/FrameNote`, e al primo avvio della 0.1.1 vengono spostati da soli)
 - Dati dell'app (database, log, modelli AI):
   - Mac: `~/Library/Application Support/com.mimmo8bit.framenote/`
   - Windows: `%LOCALAPPDATA%\com.mimmo8bit.framenote\`
@@ -81,8 +99,8 @@ Sul PC non si installa nulla: il codice si compila e si testa in GitHub Actions.
 
 | Workflow | Quando | Cosa fa |
 |---|---|---|
-| `ci.yml` (Test) | push su qualsiasi branch tranne `main` | fmt, clippy, test Rust su Linux; test Rust su macOS; tsc, Vitest, build frontend |
-| `build.yml` (Build) | push su `main`, tag `v*`, avvio manuale | test, poi `.dmg` firmato e `.msi` (artefatti per 3 giorni); sul tag, o a mano con "Pubblica", crea la Release |
+| `ci.yml` (Test) | push su qualsiasi branch tranne `main` | fmt, clippy, test Rust su Linux (anche con FFmpeg e GPU software) e su macOS (con il sidecar vero); tsc, Vitest, build frontend; guardiano della rete, vulnerabilità note (`cargo audit`, `npm audit`), nessuna registrazione o chiave nel repository |
+| `build.yml` (Build) | push su `main`, tag `v*`, avvio manuale | test, poi `.dmg` firmato (con avvio di prova dell'app firmata) e `.msi` (artefatti per 3 giorni); sul tag, o a mano con "Pubblica", crea la Release |
 | `ffmpeg.yml` | chiamato da `build.yml` | se manca, crea la release `ffmpeg-<versione>-lgpl-<n>` con i sidecar |
 | `signing-bootstrap.yml` | solo a mano, una volta | crea il certificato di firma macOS nei secret |
 
@@ -92,7 +110,8 @@ Sul PC non si installa nulla: il codice si compila e si testa in GitHub Actions.
   (branch `main`) con **Pubblica** attivo: la CI crea tag e pre-release `vX.Y.Z`. In alternativa
   basta fare push di un tag `vX.Y.Z` sul commit di `main`.
 - **FFmpeg:** versione e checksum in `scripts/ffmpeg.env`. Per cambiare versione o opzioni
-  aggiorna i valori e il suffisso di `FFMPEG_RELEASE_TAG`.
+  aggiorna i valori e il suffisso di `FFMPEG_RELEASE_TAG`; dopo la prima build aggiorna anche
+  `FFMPEG_PINNED_TAG` e gli hash `FFMPEG_SIDECAR_SHA256_*` (la build fallita li stampa).
 
 ### Certificato di firma macOS (una volta sola)
 1. GitHub → foto profilo → **Settings → Developer settings → Personal access tokens →

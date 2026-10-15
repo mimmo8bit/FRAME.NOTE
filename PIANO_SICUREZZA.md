@@ -1,5 +1,9 @@
 # FrameNote — Piano "Sicurezza e privacy"
 
+> **Stato (2026-10-15):** approvato da Domenico (D1 sì, D2 sì). Fase A implementata per `v0.1.1`, tranne il blocco
+> delle GitHub Actions per hash (motivo in `DECISIONS.md`). Hardened Runtime: era già attivo da M0, ora verificato in CI
+> e mostrato nella schermata. Da verificare sul Mac: esclusione delle notifiche, FileVault, spostamento dei progetti.
+
 ## Obiettivo
 I dati di Domenico (registrazioni, eventi del mouse, in futuro trascrizioni, note e nomi dei clienti) **non escono dal
 Mac se non per un'azione esplicita e necessaria**. La protezione non deve basarsi sulla buona volontà del codice, ma

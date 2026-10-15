@@ -14,7 +14,7 @@ for target in aarch64-apple-darwin x86_64-pc-windows-msvc x86_64-unknown-linux-g
   found=$(cargo tree --locked --target "$target" -e normal --prefix none --format '{p}' \
     | awk '{print $1}' | sort -u | grep -E "$forbidden" || true)
   if [[ -n "$found" ]]; then
-    echo "::error::componenti di rete nelle dipendenze per $target: $(echo $found | tr '\n' ' ')"
+    echo "::error::componenti di rete nelle dipendenze per $target: $(echo "$found" | tr '\n' ' ')"
     for crate in $found; do
       cargo tree --locked --target "$target" -e normal -i "$crate" | head -20
     done

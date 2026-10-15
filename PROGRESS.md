@@ -1,10 +1,34 @@
 # FrameNote — Avanzamento
 
 ## Stato attuale
-- **Milestone in corso:** M1 — spike zoom: provato da Domenico, correzione del ritorno a 1× proposta per `v0.1.1`
-- **In parallelo:** layer "Sicurezza e privacy" — piano `PIANO_SICUREZZA.md` in attesa di approvazione
+- **Milestone in corso:** M1 — spike zoom: correzione degli zoom pronta in `v0.1.1`, da riprovare
+- **In parallelo:** layer "Sicurezza e privacy" fase A implementato in `v0.1.1` (`PIANO_SICUREZZA.md`)
 - **Ultima milestone completata:** M0 ✅ (2026-10-13)
-- **Ultima build provata da Domenico:** `v0.0.1` (commit `b91e98a`), macOS 26.6.2, MacBook M1 Pro
+- **Ultima build provata da Domenico:** `v0.1.0` (commit `17c2f62`), macOS 26.6.2, MacBook Pro M1 Pro 16"
+
+## 2026-10-15 — v0.1.1: correzione degli zoom e sicurezza (fase A)
+**Fatto** (approvato da Domenico: "ok zoom, ok sicurezza D1 sì D2 sì")
+- Zoom: ritorno a schermo intero dopo N s senza clic (predefinito 2 s), clic veloci e sparsi senza zoom, zona di lavoro
+  che prevale sui clic isolati; **Ricalcola zoom** e **Riapri l'ultima registrazione** in Prova zoom.
+- Sicurezza (dettagli in `DECISIONS.md`): progetti in `~/FrameNote/Progetti` con spostamento automatico da Documenti,
+  cartelle e file privati, notifiche e password manager esclusi dalla cattura, FFmpeg limitato a file e pipe,
+  navigazione e CSP chiuse, schermata **Privacy e sicurezza** (rete, FileVault, sincronizzazione cloud, altri utenti,
+  firma, esclusioni), diagnostica anonima con elenco dei file prima di salvare.
+- CI: guardiano della rete, controllo del repository, `cargo audit`, `npm audit`, test macOS con il sidecar vero, avvio
+  di prova dell'app firmata, hash dei sidecar fissati. Versione 0.1.1.
+
+**Verificato (ambiente cloud)**
+- 75 test Rust (Linux, con FFmpeg reale: il test ha trovato il protocollo `fd` necessario a FFmpeg per le pipe) e 20
+  test frontend verdi; clippy e fmt puliti su Linux; guardiano della rete verde per macOS, Windows e Linux;
+  `npm audit` senza vulnerabilità.
+- Zoom: 7 test nuovi, tra cui lo scenario della prova di Domenico (22 clic sparsi in 34 s → nessuno zoom).
+
+**Non ancora verificato**
+- Codice macOS (esclusioni dalla cattura, FileVault, firma) compilato solo in CI; comportamento reale sul Mac.
+
+**Prossimo passo**
+- CI verde, release `v0.1.1`, prova di Domenico: Ricalcola sulla registrazione di prova, nuova registrazione con
+  notifica, schermata Privacy e sicurezza, diagnostica.
 
 ## 2026-10-15 — Feedback di Domenico sugli zoom e nuove richieste
 **Feedback su M1**

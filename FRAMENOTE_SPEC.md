@@ -100,7 +100,7 @@ framenote/
 
 ## 4. Dove e come si salvano le registrazioni
 
-- Cartella principale di default: `Documenti/FrameNote/` (macOS `~/Documents/FrameNote/`, Windows `%USERPROFILE%\Documents\FrameNote\`). Modificabile in Impostazioni, anche su disco esterno; spostamento dei progetti esistenti con conferma.
+- Cartella principale di default: `~/FrameNote/` (macOS `/Users/<utente>/FrameNote/`, Windows `%USERPROFILE%\FrameNote\`), fuori da Documenti e Scrivania perché iCloud "Scrivania e Documenti" e OneDrive non la sincronizzino (decisione D1 di Domenico, 2026-10-15; fino a v0.1.0 era `Documenti/FrameNote/`). Modificabile in Impostazioni, anche su disco esterno; spostamento dei progetti esistenti con conferma; avviso se la cartella scelta è sincronizzata con un servizio cloud.
 - Modelli AI e database in una cartella dati separata dell'app (non mescolati ai progetti).
 - Controllo spazio libero prima di registrare e durante: avviso sotto 5 GB, stop pulito con salvataggio sotto 1 GB.
 - Pulizia guidata: per progetti vecchi, opzione "Tieni solo l'export finale" che elimina le tracce grezze con conferma esplicita.

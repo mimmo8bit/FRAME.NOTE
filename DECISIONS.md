@@ -119,3 +119,40 @@ Registro delle decisioni di progetto. Ogni voce: data, decisione, motivo, altern
 - **Trascrizione in diretta** (durante registrazione o call, locale con whisper.cpp): fuori specifica, **in valutazione**. Stima
   dell'impatto sul MacBook M1 Pro 16 GB data a Domenico il 2026-10-15; la decisione arriva dopo una misura reale sul suo Mac
   all'inizio di M4 (test automatico nella diagnostica). Non è ancora nel piano.
+
+## 2026-10-15 — Sicurezza e privacy, fase A (`PIANO_SICUREZZA.md` approvato da Domenico, D1 e D2 sì)
+- **D1 — Progetti in `~/FrameNote/Progetti`.** Spostamento automatico dei progetti da `Documenti/FrameNote/Progetti`
+  una sola volta e solo se FrameNote era già installata (il database esiste): una nuova installazione non tocca mai
+  Documenti, quindi macOS non chiede più quel permesso. Nessuna sovrascrittura: un progetto con lo stesso nome resta
+  dov'era e la home lo segnala.
+- **D2 — Esclusi dalla cattura** con il filtro di ScreenCaptureKit: notifiche (`com.apple.notificationcenterui`) e
+  password manager (Password, Accesso Portachiavi, 1Password, Bitwarden, Dashlane, LastPass, KeePassXC, Proton Pass,
+  Enpass). ScreenCaptureKit esclude solo app già aperte: un thread controlla ogni 2 s e aggiorna il filtro
+  (`update_content_filter`). Da verificare sul Mac con una notifica vera durante la registrazione.
+- **Rete:** nessun client di rete compilato (controllo `scripts/check-no-network.sh` in CI sulle dipendenze di macOS,
+  Windows e Linux); FFmpeg con `-protocol_whitelist file,pipe,fd` su ogni ingresso e uscita e percorsi `file:`
+  espliciti. `fd` serve perché FFmpeg 6+ apre `-` con quel protocollo: scoperto dal test con FFmpeg reale, senza
+  avrebbe bloccato registrazione ed export. Navigazione della webview limitata alle pagine dell'app, CSP con
+  `object-src`/`frame-src`/`base-uri`/`form-action` a `'none'`. «Apri il video» apre solo `.mp4/.mov/.m4v` dentro
+  la cartella progetti.
+- **File:** `umask 077` per tutto il processo (anche FFmpeg): file `0600`, cartelle `0700`; le cartelle già esistenti
+  vengono ristrette all'avvio. `.metadata_never_index` per Spotlight (efficacia da verificare in M4, quando ci saranno
+  trascrizioni da cercare).
+- **Diagnostica:** nomi delle cartelle dei progetti sostituiti da `progetto-N` in log e JSON, titolo tolto dal
+  `project.json`, `privacy.json` aggiunto, elenco dei file mostrato prima della finestra di salvataggio.
+- **Build:** `cargo audit` e `npm audit --omit=dev` in CI; test Rust su macOS con il sidecar FFmpeg vero; avvio di prova
+  dell'app firmata con verifica dell'Hardened Runtime (che la firma aveva già da M0); hash dei sidecar FFmpeg fissati in
+  `scripts/ffmpeg.env` oltre allo `SHA256SUMS.txt` della release.
+- **Non fatto:** fissare le GitHub Actions per hash del commit. Servirebbe leggere i repository delle azioni
+  (`actions/*`, `dtolnay/rust-toolchain`, `Swatinem/rust-cache`), fuori dall'accesso di questa sessione. Rischio
+  limitato: i secret di firma sono visibili solo allo step di firma. Da fare quando Domenico aggiunge quei repository
+  alla sessione o con Dependabot.
+
+## 2026-10-15 — Zoom: nuove regole (correzione di M1, `v0.1.1`)
+- `hold_ms` predefinito 2 s ("torna a schermo intero dopo"), regolabile nella schermata Prova zoom (1–5 s) con
+  **Ricalcola zoom** sulla stessa registrazione e **Riapri l'ultima registrazione** dopo un riavvio.
+- `merge_gap_ms` (1 s) ora è il tempo minimo a schermo intero tra due zoom. Se manca: stessa zona → zoom unico; zone
+  lontane → si accorcia il primo zoom se c'è spazio, altrimenti cade quello con meno clic (entrambi se pari) e la
+  ripresa resta a 1×; uno zoom caduto continua a "occupare" il suo intervallo, così una raffica di clic sparsi non
+  genera zoom. Con la registrazione di prova (22 clic sparsi in 34 s) il risultato atteso è schermo intero.
+- `ZoomSettings` con `#[serde(default)]`: i `project.json` di v0.1.0 restano leggibili.

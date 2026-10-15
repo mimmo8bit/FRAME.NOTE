@@ -72,6 +72,23 @@ jobs:
           encoders=$("$ff" -hide_banner -encoders)
           grep -E "h264_videotoolbox|hevc_videotoolbox" <<<"$encoders"
           codesign --verify --deep --strict --verbose=2 src-tauri/target/release/bundle/macos/FrameNote.app
+      # L'app firmata (Hardened Runtime) si apre davvero: finestra, interfaccia,
+      # database e cartelle, poi si chiude da sola. Un blocco all'avvio si vede
+      # qui e non sul Mac di Domenico.
+      - name: Avvio di prova dell'app firmata
+        run: |
+          set -euo pipefail
+          app=src-tauri/target/release/bundle/macos/FrameNote.app
+          codesign -dv --verbose=2 "$app" 2>&1 | grep -E "flags=.*runtime" \
+            || { echo "::error::la firma non ha l'Hardened Runtime"; exit 1; }
+          exe=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
+          status=0
+          out=$(FRAMENOTE_SMOKE_TEST=1 perl -e 'alarm 120; exec @ARGV' "$app/Contents/MacOS/$exe" 2>&1) || status=$?
+          echo "$out" | tail -20
+          if [[ $status -ne 0 ]] || ! grep -q FRAMENOTE_SMOKE_OK <<<"$out"; then
+            echo "::error::FrameNote firmata non completa l'avvio (uscita $status)"
+            exit 1
+          fi
       - name: Crea il .dmg
         id: dmg
         run: |

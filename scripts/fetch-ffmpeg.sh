@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Scarica il sidecar FFmpeg per un target dalla release del repository,
-# ne verifica lo SHA256 e lo copia in src-tauri/binaries/ffmpeg-<target>[.exe].
+# ne verifica lo SHA256 (SHA256SUMS.txt della release e hash fissato in
+# scripts/ffmpeg.env) e lo copia in src-tauri/binaries/ffmpeg-<target>[.exe].
 # Uso: scripts/fetch-ffmpeg.sh aarch64-apple-darwin | x86_64-pc-windows-msvc
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -27,6 +28,16 @@ else
 fi
 if [[ "$actual" != "$expected" ]]; then
   echo "::error::SHA256 di $name non corrisponde (atteso $expected, trovato $actual)"; exit 1
+fi
+# Secondo controllo: l'hash fissato nel repository (scripts/ffmpeg.env).
+pin_var="FFMPEG_SIDECAR_SHA256_${target//-/_}"
+pinned="${!pin_var:-}"
+if [[ "$FFMPEG_RELEASE_TAG" != "${FFMPEG_PINNED_TAG:-}" || -z "$pinned" ]]; then
+  echo "::error::hash di $name non fissato per $FFMPEG_RELEASE_TAG: aggiorna FFMPEG_PINNED_TAG e $pin_var in scripts/ffmpeg.env con $actual (verificato da SHA256SUMS.txt)"
+  exit 1
+fi
+if [[ "$actual" != "$pinned" ]]; then
+  echo "::error::SHA256 di $name diverso da quello fissato nel repository (atteso $pinned, trovato $actual)"; exit 1
 fi
 
 mkdir -p src-tauri/binaries
