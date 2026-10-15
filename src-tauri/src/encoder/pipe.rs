@@ -220,8 +220,8 @@ mod tests {
         assert_eq!(local_output(p), "file:/p/c.mp4");
     }
 
-    /// Con un FFmpeg reale (in CI quello di sistema, che ha la rete): gli
-    /// indirizzi di rete vengono rifiutati prima di qualsiasi connessione.
+    /// Con un FFmpeg reale (in CI quello di sistema su Linux e il sidecar su
+    /// macOS): gli indirizzi di rete vengono rifiutati prima di qualsiasi connessione.
     #[test]
     fn ffmpeg_reale_rifiuta_la_rete() {
         let Some(ffmpeg) = std::env::var_os("FRAMENOTE_TEST_FFMPEG") else {
@@ -234,8 +234,13 @@ mod tests {
             .output()
             .unwrap();
         assert!(!out.status.success());
+        // FFmpeg con la rete (Linux, Windows): bloccato dalla whitelist.
+        // Sidecar macOS (`--disable-network`): il protocollo non esiste proprio.
         let err = String::from_utf8_lossy(&out.stderr);
-        assert!(err.contains("not on whitelist"), "{err}");
+        assert!(
+            err.contains("not on whitelist") || err.contains("Protocol not found"),
+            "{err}"
+        );
     }
 
     #[test]
