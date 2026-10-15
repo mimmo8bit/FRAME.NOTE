@@ -31,10 +31,14 @@ const btn =
 const primary = `${btn} bg-red-600 text-white hover:bg-red-700`;
 const secondary = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800`;
 
+/** Scelte per il ritorno a schermo intero (ms). */
+export const HOLD_CHOICES_MS = [1000, 1500, 2000, 3000, 4000, 5000];
+
 export default function ProvaZoom({ onBack }: Props) {
   const [status, setStatus] = useState<CaptureStatus | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [error, setError] = useState<string | null>(null);
+  const [last, setLast] = useState<RecordingSummary | null>(null);
   const polling = useRef<number | null>(null);
 
   const refreshStatus = useCallback(async () => {
@@ -51,6 +55,10 @@ export default function ProvaZoom({ onBack }: Props) {
 
   useEffect(() => {
     void refreshStatus();
+    api
+      .lastRecording()
+      .then((r) => setLast(r ?? null))
+      .catch(() => setLast(null));
   }, [refreshStatus]);
 
   // Aggiornamento dal vivo durante la registrazione.
@@ -89,10 +97,22 @@ export default function ProvaZoom({ onBack }: Props) {
     setPhase({ kind: "stopping" });
     try {
       const summary = await api.stopRecording();
+      setLast(summary);
       setPhase({ kind: "recorded", summary });
     } catch (e) {
       setError(errorText(e));
       setPhase({ kind: "idle" });
+    }
+  };
+
+  const replan = async (summary: RecordingSummary, holdMs: number) => {
+    setError(null);
+    try {
+      const updated = await api.replanZooms(summary.projectDir, holdMs);
+      setLast(updated);
+      setPhase({ kind: "recorded", summary: updated });
+    } catch (e) {
+      setError(errorText(e));
     }
   };
 
@@ -154,10 +174,20 @@ export default function ProvaZoom({ onBack }: Props) {
           <p className="mt-2 text-sm text-neutral-500">
             Viene registrato lo schermo principale, senza audio. Le finestre di FrameNote non compaiono nel video.
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" className={primary} onClick={start} disabled={phase.kind === "starting"}>
               {phase.kind === "starting" ? "Avvio…" : "● Avvia registrazione"}
             </button>
+            {last && (
+              <button
+                type="button"
+                className={secondary}
+                disabled={phase.kind === "starting"}
+                onClick={() => setPhase({ kind: "recorded", summary: last })}
+              >
+                Riapri l'ultima registrazione ({formatDuration(last.durationMs)})
+              </button>
+            )}
           </div>
         </Card>
       )}
@@ -184,7 +214,10 @@ export default function ProvaZoom({ onBack }: Props) {
       )}
 
       {(phase.kind === "recorded" || phase.kind === "exporting" || phase.kind === "exported") && (
-        <Recorded summary={phase.summary} />
+        <Recorded
+          summary={phase.summary}
+          onReplan={phase.kind === "exporting" ? undefined : (holdMs) => replan(phase.summary, holdMs)}
+        />
       )}
 
       {phase.kind === "recorded" && (
@@ -284,8 +317,24 @@ function Permission({ onRecheck, message }: { onRecheck: () => void; message: st
   );
 }
 
-function Recorded({ summary }: { summary: RecordingSummary }) {
+function formatSeconds(ms: number): string {
+  return `${(ms / 1000).toLocaleString("it-IT", { maximumFractionDigits: 1 })} s`;
+}
+
+function Recorded({
+  summary,
+  onReplan,
+}: {
+  summary: RecordingSummary;
+  onReplan?: (holdMs: number) => Promise<void>;
+}) {
   const r = summary.report;
+  const [hold, setHold] = useState(summary.holdMs);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setHold(summary.holdMs), [summary.holdMs]);
+  const choices = HOLD_CHOICES_MS.includes(summary.holdMs)
+    ? HOLD_CHOICES_MS
+    : [...HOLD_CHOICES_MS, summary.holdMs].sort((a, b) => a - b);
   return (
     <Card title="Registrazione">
       <p>
@@ -294,8 +343,13 @@ function Recorded({ summary }: { summary: RecordingSummary }) {
       <h3 className="mt-3 text-sm font-medium">
         {summary.zoomBlocks.length === 0
           ? "Nessuno zoom: non sono stati rilevati clic."
-          : `${summary.zoomBlocks.length} zoom calcolati`}
+          : `${summary.zoomBlocks.length} zoom ${summary.zoomBlocks.length === 1 ? "calcolato" : "calcolati"}`}
       </h3>
+      {summary.zoomBlocks.length === 0 && r.clicks > 0 && (
+        <p className="mt-1 text-sm text-neutral-500">
+          I clic erano veloci e in punti lontani: la ripresa resta a schermo intero.
+        </p>
+      )}
       {summary.zoomBlocks.length > 0 && (
         <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm">
           {summary.zoomBlocks.map((b, i) => (
@@ -305,6 +359,36 @@ function Recorded({ summary }: { summary: RecordingSummary }) {
             </li>
           ))}
         </ol>
+      )}
+      {onReplan && (
+        <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-neutral-200 pt-4 dark:border-neutral-700">
+          <label className="flex flex-col gap-1 text-sm">
+            Torna a schermo intero dopo
+            <select
+              value={hold}
+              onChange={(e) => setHold(Number(e.target.value))}
+              className="rounded-md border border-neutral-300 bg-transparent px-2 py-1.5 dark:border-neutral-600"
+            >
+              {choices.map((ms) => (
+                <option key={ms} value={ms}>
+                  {formatSeconds(ms)} senza clic
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className={secondary}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              await onReplan(hold);
+              setBusy(false);
+            }}
+          >
+            {busy ? "Ricalcolo…" : "Ricalcola zoom"}
+          </button>
+        </div>
       )}
       <p className="mt-3 text-xs text-neutral-500">
         Frame persi: {r.framesDropped} · CPU media {Math.round(r.cpuAvgPercent)}% di un core (

@@ -199,6 +199,8 @@ pub struct RecordingSummary {
     pub height: u32,
     pub clicks: usize,
     pub zoom_blocks: Vec<ZoomBlock>,
+    /// Ritorno a schermo intero dopo questo tempo senza clic.
+    pub hold_ms: f64,
     pub report: RecordingReport,
 }
 
@@ -293,8 +295,46 @@ fn summary(dir: &Path, proj: &Project) -> Result<RecordingSummary, String> {
         height: screen.height,
         clicks: proj.zoom.blocks.iter().map(|b| b.clicks).sum(),
         zoom_blocks: proj.zoom.blocks.clone(),
+        hold_ms: proj.zoom.settings.hold_ms,
         report,
     })
+}
+
+/// Valori ammessi per il ritorno a schermo intero (ms).
+const HOLD_RANGE_MS: std::ops::RangeInclusive<f64> = 500.0..=10_000.0;
+
+/// Ricalcola gli zoom della registrazione con un altro tempo di ritorno a
+/// schermo intero, senza registrare di nuovo.
+#[tauri::command]
+pub async fn replan_zooms(
+    app: AppHandle,
+    project_dir: String,
+    hold_ms: f64,
+) -> Result<RecordingSummary, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if !HOLD_RANGE_MS.contains(&hold_ms) {
+            return Err("Tempo di ritorno non valido.".to_string());
+        }
+        let state = app.state::<AppState>();
+        let dir = checked_project_dir(&state, &project_dir)?;
+        let mut proj = Project::load(&dir)?;
+        proj.zoom.settings.hold_ms = hold_ms;
+        plan_project_zooms(&dir, &mut proj)?;
+        proj.save(&dir).map_err(|e| e.to_string())?;
+        summary(&dir, &proj)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// L'ultima registrazione salvata, per riaprirla dopo un riavvio dell'app.
+#[tauri::command]
+pub fn last_recording(state: State<'_, AppState>) -> Option<RecordingSummary> {
+    let file = crate::diagnostics::export::latest_project_json(&state.paths.projects_dir)?;
+    let dir = file.parent()?;
+    let proj = Project::load(dir).ok()?;
+    proj.screen.as_ref()?;
+    summary(dir, &proj).ok()
 }
 
 /// Accetta solo cartelle dentro `Progetti/`.
@@ -414,7 +454,7 @@ pub fn open_project_file(state: State<'_, AppState>, path: String) -> Result<(),
     let p = PathBuf::from(&path)
         .canonicalize()
         .map_err(|_| "Il file non esiste più.".to_string())?;
-    if !p.starts_with(&root) {
+    if !p.starts_with(&root) || !is_video_file(&p) {
         return Err("File non valido.".into());
     }
     let opener = if cfg!(target_os = "macos") {
@@ -429,4 +469,33 @@ pub fn open_project_file(state: State<'_, AppState>, path: String) -> Result<(),
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("Non riesco ad aprire il file ({e})."))
+}
+
+/// Solo video: «Apri» non deve mai avviare programmi o script.
+fn is_video_file(path: &Path) -> bool {
+    path.is_file()
+        && path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "mp4" | "mov" | "m4v"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn apre_solo_video() {
+        let tmp = tempfile::tempdir().unwrap();
+        for name in ["zoom.mp4", "a.MOV", "script.command", "app.sh", "senza"] {
+            std::fs::write(tmp.path().join(name), b"x").unwrap();
+        }
+        assert!(is_video_file(&tmp.path().join("zoom.mp4")));
+        assert!(is_video_file(&tmp.path().join("a.MOV")));
+        assert!(!is_video_file(&tmp.path().join("script.command")));
+        assert!(!is_video_file(&tmp.path().join("app.sh")));
+        assert!(!is_video_file(&tmp.path().join("senza")));
+        assert!(!is_video_file(&tmp.path().join("manca.mp4")));
+        assert!(!is_video_file(tmp.path()));
+    }
 }

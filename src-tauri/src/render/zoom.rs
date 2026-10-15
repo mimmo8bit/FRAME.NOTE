@@ -2,7 +2,9 @@
 //!
 //! 1. `plan_zooms` trasforma i clic in **blocchi zoom** (modificabili, salvati
 //!    in `project.json`): clic vicini nel tempo e nello spazio diventano un solo
-//!    blocco, blocchi troppo vicini si fondono (isteresi contro gli zoom nervosi).
+//!    blocco. Dopo `hold_ms` senza clic la ripresa torna a schermo intero; se i
+//!    clic ravvicinati sono sparsi in punti lontani, la ripresa resta a schermo
+//!    intero invece di inseguirli (niente zoom nervosi).
 //! 2. `CameraTrack` simula una telecamera con molle smorzate criticamente a
 //!    passo fisso: transizioni morbide, senza rimbalzi, deterministiche.
 
@@ -11,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use super::cursor::CursorTrack;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct ZoomSettings {
     /// Clic entro questo intervallo (ms) possono stare nello stesso zoom.
     pub cluster_time_ms: f64,
@@ -19,10 +21,12 @@ pub struct ZoomSettings {
     pub cluster_distance: f64,
     /// Lo zoom inizia così prima del primo clic.
     pub lead_ms: f64,
-    /// … e finisce così dopo l'ultimo.
+    /// … e finisce così dopo l'ultimo: dopo questo tempo senza clic la ripresa
+    /// torna a schermo intero.
     pub hold_ms: f64,
     pub min_duration_ms: f64,
-    /// Blocchi separati da meno di questo intervallo si fondono.
+    /// Tempo minimo a schermo intero tra due zoom: se manca, due zoom nella
+    /// stessa zona si fondono, due zoom in zone lontane si accorciano o cadono.
     pub merge_gap_ms: f64,
     pub min_scale: f64,
     pub max_scale: f64,
@@ -40,7 +44,7 @@ impl Default for ZoomSettings {
             cluster_time_ms: 2500.0,
             cluster_distance: 0.15,
             lead_ms: 400.0,
-            hold_ms: 1500.0,
+            hold_ms: 2000.0,
             min_duration_ms: 1200.0,
             merge_gap_ms: 1000.0,
             min_scale: 1.5,
@@ -96,13 +100,7 @@ pub fn clamp_center(cx: f64, cy: f64, scale: f64, width: f64, height: f64) -> (f
     (cx.clamp(hw, width - hw), cy.clamp(hh, height - hh))
 }
 
-fn block_from_clicks(
-    clicks: &[Click],
-    s: &ZoomSettings,
-    width: f64,
-    height: f64,
-    duration_ms: f64,
-) -> ZoomBlock {
+fn click_bounds(clicks: &[Click]) -> (f64, f64, f64, f64) {
     let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
     for c in clicks {
         x0 = x0.min(c.x);
@@ -110,11 +108,26 @@ fn block_from_clicks(
         x1 = x1.max(c.x);
         y1 = y1.max(c.y);
     }
-    // Livello che fa stare l'area dei clic con il margine.
+    (x0, y0, x1, y1)
+}
+
+/// Livello massimo che fa stare l'area dei clic, con il margine, nell'inquadratura.
+fn fit_scale(clicks: &[Click], s: &ZoomSettings, width: f64, height: f64) -> f64 {
+    let (x0, y0, x1, y1) = click_bounds(clicks);
     let need_w = (x1 - x0) / (1.0 - 2.0 * s.margin).max(0.1);
     let need_h = (y1 - y0) / (1.0 - 2.0 * s.margin).max(0.1);
-    let fit = (width / need_w.max(1.0)).min(height / need_h.max(1.0));
-    let scale = fit.clamp(s.min_scale, s.max_scale);
+    (width / need_w.max(1.0)).min(height / need_h.max(1.0))
+}
+
+fn block_from_clicks(
+    clicks: &[Click],
+    s: &ZoomSettings,
+    width: f64,
+    height: f64,
+    duration_ms: f64,
+) -> ZoomBlock {
+    let (x0, y0, x1, y1) = click_bounds(clicks);
+    let scale = fit_scale(clicks, s, width, height).clamp(s.min_scale, s.max_scale);
     let (center_x, center_y) = clamp_center((x0 + x1) / 2.0, (y0 + y1) / 2.0, scale, width, height);
     let first = clicks.first().map_or(0.0, |c| c.t_ms);
     let last = clicks.last().map_or(0.0, |c| c.t_ms);
@@ -167,24 +180,107 @@ pub fn plan_zooms(
         }
     }
 
-    // 2. Fusione dei gruppi i cui blocchi sono troppo vicini o sovrapposti
-    //    (isteresi): si ricalcola il blocco sull'unione dei clic.
-    let mut merged: Vec<Vec<Click>> = Vec::new();
+    // 2. Successione dei blocchi. Tra due zoom deve restare almeno
+    //    `merge_gap_ms` a schermo intero, altrimenti la ripresa farebbe un
+    //    "su e giù" nervoso. Quando manca:
+    //    - stessa zona (l'unione dei clic sta nell'inquadratura): un solo zoom;
+    //    - zone lontane: si accorcia il primo zoom se c'è spazio, altrimenti
+    //      cade lo zoom con meno clic (tutti e due se pari) e la ripresa resta
+    //      a schermo intero. Uno zoom caduto continua a "occupare" il suo
+    //      intervallo: i clic sparsi in rapida successione non generano zoom.
+    let mut kept: Vec<Planned> = Vec::new();
+    let mut dropped: Option<Planned> = None;
     for g in groups {
-        if let Some(prev) = merged.last_mut() {
-            let a = block_from_clicks(prev, s, width, height, duration_ms);
-            let b = block_from_clicks(&g, s, width, height, duration_ms);
-            if b.start_ms - a.end_ms < s.merge_gap_ms {
-                prev.extend(g);
+        let item = Planned::new(g, s, width, height, duration_ms);
+        let too_close = |p: &Planned| item.block.start_ms - p.block.end_ms < s.merge_gap_ms;
+        let same_zone = |p: &Planned| {
+            let mut all = p.clicks.clone();
+            all.extend_from_slice(&item.clicks);
+            fit_scale(&all, s, width, height) >= s.min_scale
+        };
+
+        if let Some(d) = dropped.as_ref() {
+            if too_close(d) && !same_zone(d) && item.clicks.len() <= d.clicks.len() {
+                dropped = Some(item);
                 continue;
             }
         }
-        merged.push(g);
+        let Some(prev) = kept.last_mut() else {
+            kept.push(item);
+            continue;
+        };
+        if !too_close(prev) {
+            kept.push(item);
+            continue;
+        }
+        if same_zone(prev) {
+            let mut all = std::mem::take(&mut prev.clicks);
+            all.extend(item.clicks);
+            *prev = Planned::new(all, s, width, height, duration_ms);
+            continue;
+        }
+        let mut item = item;
+        if separate(prev, &mut item, s) {
+            kept.push(item);
+            continue;
+        }
+        match prev.clicks.len().cmp(&item.clicks.len()) {
+            std::cmp::Ordering::Greater => dropped = Some(item),
+            std::cmp::Ordering::Less => {
+                dropped = kept.pop();
+                kept.push(item);
+            }
+            std::cmp::Ordering::Equal => {
+                kept.pop();
+                dropped = Some(item);
+            }
+        }
     }
-    merged
-        .iter()
-        .map(|g| block_from_clicks(g, s, width, height, duration_ms))
-        .collect()
+    let mut blocks: Vec<ZoomBlock> = kept.into_iter().map(|p| p.block).collect();
+    // Sicurezza: blocchi mai sovrapposti.
+    for i in 1..blocks.len() {
+        if blocks[i].start_ms < blocks[i - 1].end_ms {
+            blocks[i - 1].end_ms = blocks[i].start_ms;
+        }
+    }
+    blocks
+}
+
+/// Uno zoom in via di pianificazione, con i clic che lo hanno generato.
+#[derive(Debug, Clone)]
+struct Planned {
+    block: ZoomBlock,
+    clicks: Vec<Click>,
+}
+
+impl Planned {
+    fn new(clicks: Vec<Click>, s: &ZoomSettings, width: f64, height: f64, duration_ms: f64) -> Self {
+        Self {
+            block: block_from_clicks(&clicks, s, width, height, duration_ms),
+            clicks,
+        }
+    }
+}
+
+/// Dopo l'ultimo clic lo zoom resta almeno così, per vedere l'anello del clic.
+const MIN_TAIL_MS: f64 = 300.0;
+
+/// Prova a lasciare `merge_gap_ms` a schermo intero tra due zoom in zone
+/// diverse, accorciando la fine del primo e ritardando l'inizio del secondo
+/// (mai oltre il suo primo clic). `false` se non c'è spazio.
+fn separate(a: &mut Planned, b: &mut Planned, s: &ZoomSettings) -> bool {
+    let a_last = a.clicks.last().map_or(0.0, |c| c.t_ms);
+    let b_first = b.clicks.first().map_or(0.0, |c| c.t_ms);
+    let a_end = (b.block.start_ms - s.merge_gap_ms)
+        .min(a.block.end_ms)
+        .max(a_last + MIN_TAIL_MS);
+    let b_start = b.block.start_ms.max(a_end + s.merge_gap_ms);
+    if b_start > b_first || a_end - a.block.start_ms < s.min_duration_ms {
+        return false;
+    }
+    a.block.end_ms = a_end;
+    b.block.start_ms = b_start;
+    true
 }
 
 /// Molla smorzata criticamente: raggiunge il bersaglio senza oscillare.
@@ -372,16 +468,112 @@ mod tests {
     }
 
     #[test]
-    fn clic_ravvicinati_si_fondono_isteresi() {
+    fn clic_lontani_ravvicinati_restano_a_schermo_intero() {
         let s = ZoomSettings::default();
-        // Due clic lontani nello spazio ma a 1,8 s: senza isteresi sarebbero due
-        // zoom con un "su e giù" in mezzo. I blocchi distano meno di merge_gap.
+        // Due clic in angoli opposti a 1,8 s: non c'è tempo per due zoom
+        // separati e a 1,5× non stanno insieme. La ripresa resta a 1×.
         let clicks = [c(5000.0, 300.0, 300.0), c(6800.0, 2700.0, 1700.0)];
+        assert!(plan_zooms(&clicks, W, H, 20_000.0, &s).is_empty());
+    }
+
+    #[test]
+    fn clic_ravvicinati_nella_stessa_zona_un_solo_zoom() {
+        let s = ZoomSettings::default();
+        // Clic ogni 1,5 s nella stessa zona: un solo zoom, niente su e giù.
+        let clicks: Vec<Click> = (0..6)
+            .map(|i| c(3000.0 + i as f64 * 1500.0, 800.0 + i as f64 * 60.0, 600.0))
+            .collect();
+        let blocks = plan_zooms(&clicks, W, H, 30_000.0, &s);
+        assert_eq!(blocks.len(), 1, "{blocks:#?}");
+        assert_eq!(blocks[0].clicks, 6);
+        assert_eq!(blocks[0].end_ms, 3000.0 + 5.0 * 1500.0 + s.hold_ms);
+    }
+
+    /// Lo scenario della prova di Domenico (2026-10-15): 22 clic in 34 s, quasi
+    /// tutti in punti diversi dello schermo, uno ogni 1,5 s circa.
+    fn clic_sparsi() -> Vec<Click> {
+        let spots = [
+            (400.0, 300.0),
+            (2600.0, 400.0),
+            (1700.0, 1500.0),
+            (600.0, 1800.0),
+            (2900.0, 1700.0),
+            (1500.0, 500.0),
+        ];
+        (0..22)
+            .map(|i| {
+                let (x, y) = spots[(i * 5) % spots.len()];
+                c(1500.0 + i as f64 * 1500.0, x, y)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn clic_sparsi_in_fretta_nessuno_zoom() {
+        let s = ZoomSettings::default();
+        let blocks = plan_zooms(&clic_sparsi(), W, H, 34_000.0, &s);
+        assert!(blocks.is_empty(), "{blocks:#?}");
+    }
+
+    #[test]
+    fn dopo_una_pausa_torna_a_schermo_intero() {
+        let s = ZoomSettings::default();
+        // Stessa zona, ma 6 s di pausa tra i clic: due zoom e in mezzo 1×.
+        let clicks = [c(3000.0, 800.0, 600.0), c(9000.0, 820.0, 620.0)];
+        let blocks = plan_zooms(&clicks, W, H, 20_000.0, &s);
+        assert_eq!(blocks.len(), 2, "{blocks:#?}");
+        assert_eq!(blocks[0].end_ms, 3000.0 + s.hold_ms);
+        let cam = CameraTrack::simulate(&blocks, None, W, H, 20_000.0, &s);
+        let lowest = (0..60)
+            .map(|i| cam.at(5000.0 + i as f64 * 50.0).scale)
+            .fold(f64::MAX, f64::min);
+        assert!(lowest < 1.05, "non torna a schermo intero: {lowest}");
+        // Con un ritorno più lento (5 s) la pausa di 6 s non basta: zoom unico.
+        let lento = ZoomSettings {
+            hold_ms: 5000.0,
+            ..s
+        };
+        assert_eq!(plan_zooms(&clicks, W, H, 20_000.0, &lento).len(), 1);
+    }
+
+    #[test]
+    fn zona_di_lavoro_prevale_sui_clic_isolati() {
+        let s = ZoomSettings::default();
+        // Quattro clic concentrati, poi subito un clic isolato lontano:
+        // resta lo zoom sulla zona di lavoro, il clic isolato no.
+        let mut clicks: Vec<Click> = (0..4)
+            .map(|i| c(2000.0 + i as f64 * 800.0, 700.0, 500.0))
+            .collect();
+        clicks.push(c(5600.0, 2800.0, 1800.0));
         let blocks = plan_zooms(&clicks, W, H, 20_000.0, &s);
         assert_eq!(blocks.len(), 1, "{blocks:#?}");
-        assert_eq!(blocks[0].clicks, 2);
-        // Area larga: il livello scende al minimo per farla stare.
-        assert_eq!(blocks[0].scale, s.min_scale);
+        assert_eq!(blocks[0].clicks, 4);
+    }
+
+    #[test]
+    fn zone_diverse_con_spazio_tra_loro() {
+        let s = ZoomSettings::default();
+        // Due clic lontani a 3,5 s: il primo zoom si accorcia e in mezzo
+        // resta almeno merge_gap a schermo intero.
+        let clicks = [c(3000.0, 400.0, 300.0), c(6500.0, 2700.0, 1700.0)];
+        let blocks = plan_zooms(&clicks, W, H, 20_000.0, &s);
+        assert_eq!(blocks.len(), 2, "{blocks:#?}");
+        assert!(blocks[1].start_ms - blocks[0].end_ms >= s.merge_gap_ms - 1e-9);
+        assert!(blocks[1].start_ms <= 6500.0);
+    }
+
+    #[test]
+    fn impostazioni_vecchie_restano_leggibili() {
+        // project.json di v0.1.0: tutti i campi presenti, con i valori di allora.
+        let json = r#"{"clusterTimeMs":2500.0,"clusterDistance":0.15,"leadMs":400.0,"holdMs":1500.0,
+            "minDurationMs":1200.0,"mergeGapMs":1000.0,"minScale":1.5,"maxScale":2.0,"margin":0.3,
+            "springOmega":7.5,"followDeadzone":0.6}"#;
+        let s: ZoomSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(s.hold_ms, 1500.0);
+        // Campi mancanti: valori predefiniti.
+        let s: ZoomSettings = serde_json::from_str(r#"{"holdMs":3000.0}"#).unwrap();
+        assert_eq!(s.hold_ms, 3000.0);
+        assert_eq!(s.lead_ms, ZoomSettings::default().lead_ms);
     }
 
     #[test]

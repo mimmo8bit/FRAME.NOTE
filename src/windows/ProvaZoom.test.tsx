@@ -26,6 +26,7 @@ const summary: RecordingSummary = {
     { startMs: 2600, endMs: 5700, scale: 2, centerX: 756, centerY: 491, clicks: 2 },
     { startMs: 10_600, endMs: 12_500, scale: 2, centerX: 2268, centerY: 1473, clicks: 1 },
   ],
+  holdMs: 2000,
   report: {
     durationMs: 31_000,
     framesReceived: 640,
@@ -133,6 +134,40 @@ describe("Prova zoom", () => {
     expect(invoke).toHaveBeenCalledWith("open_project_file", {
       path: `${summary.projectDir}/exports/zoom.mp4`,
     });
+  });
+
+  it("ricalcola gli zoom con un altro ritorno a schermo intero", async () => {
+    mockCommands({
+      capture_status: () => ok,
+      last_recording: () => summary,
+      replan_zooms: () => ({ ...summary, holdMs: 4000, zoomBlocks: [summary.zoomBlocks[0]] }),
+    });
+    const user = userEvent.setup();
+    render(<ProvaZoom onBack={() => {}} />);
+    await user.click(await screen.findByRole("button", { name: /Riapri l'ultima registrazione \(0:31\)/ }));
+    expect(screen.getByText("2 zoom calcolati")).toBeVisible();
+
+    const select = screen.getByLabelText("Torna a schermo intero dopo");
+    expect(select).toHaveValue("2000");
+    await user.selectOptions(select, "4000");
+    await user.click(screen.getByRole("button", { name: "Ricalcola zoom" }));
+    expect(invoke).toHaveBeenCalledWith("replan_zooms", {
+      projectDir: summary.projectDir,
+      holdMs: 4000,
+    });
+    expect(await screen.findByText("1 zoom calcolato")).toBeVisible();
+    expect(screen.getByLabelText("Torna a schermo intero dopo")).toHaveValue("4000");
+  });
+
+  it("spiega perché con clic sparsi non ci sono zoom", async () => {
+    mockCommands({
+      capture_status: () => ok,
+      last_recording: () => ({ ...summary, zoomBlocks: [] }),
+    });
+    const user = userEvent.setup();
+    render(<ProvaZoom onBack={() => {}} />);
+    await user.click(await screen.findByRole("button", { name: /Riapri l'ultima registrazione/ }));
+    expect(screen.getByText(/la ripresa resta a schermo intero/)).toBeVisible();
   });
 
   it("mostra gli errori della registrazione", async () => {

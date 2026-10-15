@@ -120,6 +120,8 @@ export interface RecordingSummary {
   height: number;
   clicks: number;
   zoomBlocks: ZoomBlock[];
+  /** Ritorno a schermo intero dopo questo tempo senza clic. */
+  holdMs: number;
   report: RecordingReport;
 }
 
@@ -150,6 +152,9 @@ export const api = {
   exportZoom: (projectDir: string) => invoke<ExportSummary>("export_zoom", { projectDir }),
   cancelExport: () => invoke<void>("cancel_export"),
   openProjectFile: (path: string) => invoke<void>("open_project_file", { path }),
+  replanZooms: (projectDir: string, holdMs: number) =>
+    invoke<RecordingSummary>("replan_zooms", { projectDir, holdMs }),
+  lastRecording: () => invoke<RecordingSummary | null>("last_recording"),
   log: (level: "info" | "warn" | "error", message: string) =>
     invoke<void>("log_frontend", { level, message }).catch(() => {
       // Se anche il log fallisce non c'è altro da fare: l'interfaccia non deve rompersi.

@@ -124,6 +124,8 @@ pub fn run() {
             zoom_commands::export_zoom,
             zoom_commands::cancel_export,
             zoom_commands::open_project_file,
+            zoom_commands::replan_zooms,
+            zoom_commands::last_recording,
         ])
         .run(tauri::generate_context!())
         .expect("errore all'avvio di FrameNote");
