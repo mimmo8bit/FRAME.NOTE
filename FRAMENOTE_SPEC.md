@@ -138,10 +138,12 @@ Ogni modulo è "finito" solo quando i criteri sono verificati su una build insta
 - Esclusione dalla cattura di app scelte e delle finestre di FrameNote, con API native.
 - Teleprompter visibile solo a Domenico, escluso dalla cattura.
 - Indicatore di registrazione sempre visibile (tray/menu bar + bordo opzionale).
+- **Icona nella barra dei menu** con tempo trascorso accanto e aspetto diverso in registrazione e in pausa; menu rapido: avvia/ferma, pausa/riprendi, annulla, microfono, audio di sistema, webcam (con scorciatoia per forma e colore della bolla), sorgente, trascrizione on/off, ultima registrazione, Info e diagnostica, Esci (richiesta di Domenico, 2026-10-15; M2, bolla M3, trascrizione M4).
+- **Riquadro tratteggiato** visibile solo a Domenico, escluso dalla cattura, che mostra l'inquadratura dello zoom durante la registrazione (richiesta di Domenico, 2026-10-15; M2).
 - **Modalità call:** rileva Zoom, Teams, Webex, Slack, browser con microfono attivo; propone "Solo audio + note" o "Audio + schermo".
 
 ### 5.2 Auto-Polish (automatico allo stop)
-- **Zoom automatico** su clic e zone di digitazione da `events.jsonl`: raggruppa clic vicini, zoom 1.5–2.5×, transizioni morbide (spring/ease), durata minima e isteresi contro gli zoom nervosi. Ogni zoom è un blocco modificabile.
+- **Zoom automatico** su clic e zone di digitazione da `events.jsonl`: raggruppa clic vicini, zoom 1.5–2.5×, transizioni morbide (spring/ease), durata minima e isteresi contro gli zoom nervosi. Ogni zoom è un blocco modificabile. Dopo N secondi senza clic (regolabile, predefinito 2 s) la ripresa torna sempre a schermo intero (richiesta di Domenico, 2026-10-15).
 - **Cursore:** ingrandimento, smussatura, evidenziazione clic, nascosto dopo N secondi da fermo.
 - **Taglio silenzi** (soglia e durata configurabili) e **intercalari** dalla trascrizione; lista italiana di default: "ehm", "ehmm", "uhm", "cioè", "allora", "diciamo", "praticamente", "tipo", "insomma", "vabbè". Tagli reversibili.
 - **Audio:** riduzione rumore e normalizzazione a -16 LUFS, separate per mic e sistema.
@@ -170,6 +172,7 @@ Ogni modulo è "finito" solo quando i criteri sono verificati su una build insta
 
 ### 5.5 Trascrizione e AI (tutto locale)
 - Trascrizione automatica a fine registrazione, in background, lingua rilevata (default italiano), offline.
+- Trascrizione attivabile o disattivabile per la registrazione in corso anche dal menu della barra dei menu. Trascrizione in diretta durante registrazione o call: in valutazione (vedi `DECISIONS.md`, 2026-10-15).
 - **Diarizzazione** con etichette; rinomina manuale e memoria della voce tramite embedding salvati.
 - **Riassunto a capitoli con fonte:** ogni punto ha il ms di origine, cliccabile. Map-reduce per call lunghe. Prompt di sistema che vieta informazioni non presenti nella trascrizione.
 - **Template:** call di vendita, kickoff cliente, report mensile, riunione interna, tutorial, intervista; personalizzabili come file Markdown.
@@ -215,7 +218,7 @@ Ogni milestone termina con: CI verde su macOS e Windows, pacchetto scaricabile d
 |---|---|---|
 | **M0** | Repo GitHub, workflow CI (test + build .dmg/.msi + release), firma self-signed stabile su macOS, scaffolding Tauri 2 + React, FFmpeg sidecar incluso, SQLite, cartelle, log + "Esporta diagnostica", README con istruzioni di installazione | Domenico installa la build, l'app si apre, la diagnostica mostra encoder e GPU rilevati |
 | **M1** | **Spike zoom:** registrazione schermo + eventi cursore, export MP4 con zoom automatico via wgpu | Video di 30 s con 5 clic, zoom fluidi e cursore smussato. Se la qualità non è buona, fermati e proponi soluzioni |
-| **M2** | Registrazione completa: sorgenti, tracce separate, anteprima, segmenti + recovery, scorciatoie, esclusione finestre, barra REC, bolla, controllo spazio disco | Test di crash superato; 30 min senza drop né desync > 40 ms (report auto-test) |
+| **M2** | Registrazione completa: sorgenti, tracce separate, anteprima, segmenti + recovery, scorciatoie, esclusione finestre, barra REC, icona nella barra dei menu, riquadro di anteprima dello zoom, bolla, controllo spazio disco | Test di crash superato; 30 min senza drop né desync > 40 ms (report auto-test) |
 | **M3** | Auto-Polish + "Pronto" + export in tutti i formati + preset di invio | REC → MP4 montato e copiabile negli appunti senza aprire l'editor |
 | **M4** | Download modelli in-app, trascrizione, diarizzazione, sottotitoli, intercalari, libreria con FTS | Call di 20 min in italiano trascritta offline con parlanti distinti |
 | **M5** | AI con llama.cpp integrato: riassunti con fonte, template, decisioni/azioni, email, titolo, import file, "chiedi alla registrazione", redazione | Ogni punto del riassunto rimanda a un minuto verificabile, senza programmi esterni |

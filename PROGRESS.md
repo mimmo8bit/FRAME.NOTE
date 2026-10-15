@@ -1,10 +1,25 @@
 # FrameNote — Avanzamento
 
 ## Stato attuale
-- **Milestone in corso:** M1 — spike zoom: implementato, in attesa della prova di Domenico sulla build `v0.1.0`
+- **Milestone in corso:** M1 — spike zoom: provato da Domenico, correzione del ritorno a 1× proposta per `v0.1.1`
 - **In parallelo:** layer "Sicurezza e privacy" — piano `PIANO_SICUREZZA.md` in attesa di approvazione
 - **Ultima milestone completata:** M0 ✅ (2026-10-13)
 - **Ultima build provata da Domenico:** `v0.0.1` (commit `b91e98a`), macOS 26.6.2, MacBook M1 Pro
+
+## 2026-10-15 — Feedback di Domenico sugli zoom e nuove richieste
+**Feedback su M1**
+- La ripresa deve tornare a schermo intero (1×) quando non clicca per un po'; utile un riquadro tratteggiato che mostri cosa
+  finirà nel video. Causa individuata nel motore (fusione dei clic ravvicinati, livello minimo 1,5×): proposta di correzione
+  per `v0.1.1` e riquadro in M2 (`DECISIONS.md`).
+
+**Messo in coda** (`DECISIONS.md`, `FRAMENOTE_SPEC.md` §5.1, §5.2, §5.5, §7)
+- Icona nella barra dei menu con menu di controllo rapido (M2; bolla M3; trascrizione M4).
+- Trascrizione on/off (M4); trascrizione in diretta in valutazione, stima dell'impatto data a Domenico.
+
+**In attesa di Domenico**
+1. Ok alla correzione degli zoom per `v0.1.1`.
+2. Approvazione di `PIANO_SICUREZZA.md` (D1, D2).
+3. Diagnostica della prova di M1 (contiene i blocchi zoom calcolati).
 
 ## 2026-10-14 — Release v0.1.0 e piano di sicurezza
 **Fatto**

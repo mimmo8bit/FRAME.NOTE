@@ -86,3 +86,34 @@ Registro delle decisioni di progetto. Ogni voce: data, decisione, motivo, altern
 - **Mouse letto con CoreGraphics** (`CGEventGetLocation`, `CGEventSourceButtonState`) a 120 Hz, senza permessi aggiuntivi. Scartato `device_query`: su macOS pretende il permesso Accessibilità e va in panic se manca.
 - **Cattura → FFmpeg via pipe** (NV12, risoluzione nativa, 30 fps a frame rate costante); i tempi dei frame (host time di ScreenCaptureKit) e degli eventi del mouse usano lo stesso orologio di sistema. Se CPU o drop risultano troppo alti, in M2 si passa alla codifica in-process (VideoToolbox/AVAssetWriter).
 - **Cursore sempre a freccia** nello spike; le forme reali in M3.
+
+## 2026-10-15 — Zoom: ritorno a schermo intero e riquadro di anteprima (feedback di Domenico su M1)
+- **Richiesta:** quando non clicca per un po' la ripresa deve tornare a 1×; in aggiunta, un riquadro tratteggiato visibile solo a lui
+  che mostra cosa finirà nel video.
+- **Causa nel motore di M1:** lo zoom finisce 1,5 s dopo l'ultimo clic, ma i clic a meno di ~2,9 s l'uno dall'altro si fondono in un
+  solo blocco, anche se sono in punti lontani; in quel caso il livello resta al minimo (1,5×) invece di tornare a 1×. Con clic
+  frequenti la ripresa resta zoomata a lungo e insegue il cursore.
+- **Subito (correzione di M1, `v0.1.1`, da approvare):** regola esplicita "torna a schermo intero dopo N s senza clic"
+  (predefinito 2 s, regolabile 1–5 s): nessuna fusione scavalca una pausa più lunga di N s; i clic che a 1,5× non stanno
+  nell'inquadratura non si fondono più in uno zoom unico. Nella schermata "Prova zoom": impostazione + **Ricalcola zoom** sulla
+  stessa registrazione, senza registrare di nuovo.
+- **M2:** riquadro tratteggiato in sovrimpressione durante la registrazione, escluso dalla cattura (le finestre di FrameNote lo sono
+  già) e trasparente ai clic. Usa la versione "in tempo reale" del motore zoom: l'export può anticipare lo zoom di 0,4 s rispetto
+  al riquadro, perché conosce già il clic successivo. Interruttore per nasconderlo.
+
+## 2026-10-15 — Icona di FrameNote nella barra dei menu (richiesta di Domenico)
+- Icona sempre presente mentre l'app è attiva, con il **tempo trascorso accanto** durante la registrazione; aspetto diverso in
+  registrazione (pallino rosso) e in pausa. Clic → menu di controllo rapido.
+- **M2:** avvia/ferma con tempo trascorso, pausa/riprendi, annulla registrazione, microfono on/off, audio di sistema on/off,
+  webcam on/off, scelta della sorgente (schermo intero, finestra, area), apri l'ultima registrazione / mostra nella cartella,
+  Info e diagnostica, Esci. Sostituisce la parte "tray/menu bar" dell'indicatore di registrazione già in specifica (§5.1).
+- **M3:** scorciatoie nel menu per forma e colore della bolla webcam (insieme a colori e animazioni della bolla).
+- **M4:** trascrizione on/off.
+- Tecnica: icona di sistema di Tauri 2 (`tray-icon`). Su Windows (M9) il testo accanto all'icona non esiste: il tempo va nel
+  suggerimento e nel menu.
+
+## 2026-10-15 — Trascrizione on/off e trascrizione in diretta (richiesta di Domenico)
+- **On/off** dal menu della barra dei menu per trascrivere la registrazione in corso: **M4**.
+- **Trascrizione in diretta** (durante registrazione o call, locale con whisper.cpp): fuori specifica, **in valutazione**. Stima
+  dell'impatto sul MacBook M1 Pro 16 GB data a Domenico il 2026-10-15; la decisione arriva dopo una misura reale sul suo Mac
+  all'inizio di M4 (test automatico nella diagnostica). Non è ancora nel piano.
