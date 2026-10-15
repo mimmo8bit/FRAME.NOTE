@@ -7,7 +7,45 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
 use crate::diagnostics::{export, info};
+use crate::privacy;
 use crate::state::AppState;
+
+/// Elenco dei file che finiranno nello zip di diagnostica.
+#[tauri::command]
+pub fn diagnostics_preview(state: State<'_, AppState>) -> Vec<export::PreviewEntry> {
+    export::preview(&export::ExportInput {
+        info_json: serde_json::Value::Null,
+        privacy_json: Some(serde_json::Value::Null),
+        logs_dir: &state.paths.logs_dir,
+        projects_dir: &state.paths.projects_dir,
+        home_dir: state.paths.home_dir.as_deref(),
+    })
+}
+
+/// Stato della protezione dei dati (schermata "Privacy e sicurezza").
+#[tauri::command]
+pub async fn privacy_report(app: AppHandle) -> Result<privacy::PrivacyReport, String> {
+    tauri::async_runtime::spawn_blocking(move || privacy::report(&app.state::<AppState>().paths))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Apre il pannello FileVault di Impostazioni di Sistema.
+#[tauri::command]
+pub fn open_filevault_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?FileVault")
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("Non riesco ad aprire Impostazioni di Sistema ({e})."))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Disponibile solo su Mac.".into())
+    }
+}
 
 fn collect_info(app: &AppHandle) -> info::DiagnosticInfo {
     let state = app.state::<AppState>();
@@ -66,10 +104,13 @@ pub async fn export_diagnostics(app: AppHandle, dest: String) -> Result<ExportRe
         };
         let state = app.state::<AppState>();
         let info_json = serde_json::to_value(&info).map_err(|e| e.to_string())?;
+        let privacy_json =
+            serde_json::to_value(privacy::report(&state.paths)).map_err(|e| e.to_string())?;
         let entries = export::write_zip(
             &dest,
             &export::ExportInput {
                 info_json,
+                privacy_json: Some(privacy_json),
                 logs_dir: &state.paths.logs_dir,
                 projects_dir: &state.paths.projects_dir,
                 home_dir: state.paths.home_dir.as_deref(),

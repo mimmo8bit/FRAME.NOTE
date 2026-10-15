@@ -5,9 +5,10 @@ import { api } from "../lib/api";
 interface Props {
   onOpenDiagnostics: () => void;
   onOpenZoomTest: () => void;
+  onOpenPrivacy: () => void;
 }
 
-export default function Home({ onOpenDiagnostics, onOpenZoomTest }: Props) {
+export default function Home({ onOpenDiagnostics, onOpenZoomTest, onOpenPrivacy }: Props) {
   const [version, setVersion] = useState<string | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
 
@@ -59,6 +60,21 @@ export default function Home({ onOpenDiagnostics, onOpenZoomTest }: Props) {
           className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
           Prova zoom
+        </button>
+      </section>
+
+      <section className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-700">
+        <h2 className="font-medium">Privacy e sicurezza</h2>
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+          Controlla che le tue registrazioni restino solo su questo computer: rete, cifratura del disco,
+          cartelle, app escluse dai video.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenPrivacy}
+          className="mt-4 rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800"
+        >
+          Privacy e sicurezza
         </button>
       </section>
 

@@ -85,6 +85,11 @@ function mockCommands(overrides: Record<string, () => unknown> = {}) {
         return "framenote-diagnostica-20261013-1507.zip";
       case "export_diagnostics":
         return { path: "/Users/dom/Desktop/d.zip", entries: ["info.json", "logs/a.log"] };
+      case "diagnostics_preview":
+        return [
+          { name: "info.json", description: "Dati tecnici" },
+          { name: "logs/a.log", description: "Registro tecnico dell'app" },
+        ];
       default:
         return undefined;
     }
@@ -132,6 +137,11 @@ describe("Info e diagnostica", () => {
     await screen.findByText("h264_videotoolbox", { selector: "strong" });
 
     await user.click(screen.getByRole("button", { name: "Esporta diagnostica" }));
+    // Prima l'elenco dei file, poi la finestra di salvataggio.
+    expect(await screen.findByText("Cosa contiene la diagnostica")).toBeVisible();
+    expect(screen.getByText("logs/a.log")).toBeVisible();
+    expect(save).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Salva…" }));
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({ defaultPath: "framenote-diagnostica-20261013-1507.zip" }),
     );
@@ -149,7 +159,9 @@ describe("Info e diagnostica", () => {
     render(<Diagnostica onBack={() => {}} />);
     await screen.findByText("h264_videotoolbox", { selector: "strong" });
     await user.click(screen.getByRole("button", { name: "Esporta diagnostica" }));
+    await user.click(await screen.findByRole("button", { name: "Salva…" }));
     expect(invoke).not.toHaveBeenCalledWith("export_diagnostics", expect.anything());
+    expect(screen.queryByText("Cosa contiene la diagnostica")).toBeNull();
   });
 
   it("mostra l'errore di esportazione", async () => {
@@ -163,6 +175,7 @@ describe("Info e diagnostica", () => {
     render(<Diagnostica onBack={() => {}} />);
     await screen.findByText("h264_videotoolbox", { selector: "strong" });
     await user.click(screen.getByRole("button", { name: "Esporta diagnostica" }));
+    await user.click(await screen.findByRole("button", { name: "Salva…" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("disco pieno");
   });
 

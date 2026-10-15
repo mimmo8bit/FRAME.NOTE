@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { api, errorText, type DiagnosticInfo, type ExportResult } from "../lib/api";
+import {
+  api,
+  errorText,
+  type DiagnosticInfo,
+  type ExportResult,
+  type PreviewEntry,
+} from "../lib/api";
 import { formatBytes, formatDateTime } from "../lib/format";
 
 interface Props {
@@ -15,6 +21,7 @@ type Load =
 
 type Export =
   | { state: "idle" }
+  | { state: "confirm"; entries: PreviewEntry[] }
   | { state: "saving" }
   | { state: "done"; result: ExportResult }
   | { state: "error"; message: string };
@@ -43,6 +50,15 @@ export default function Diagnostica({ onBack }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onBack]);
 
+  // Prima l'elenco esatto dei file, poi la finestra di salvataggio.
+  const askExport = async () => {
+    try {
+      setExp({ state: "confirm", entries: await api.diagnosticsPreview() });
+    } catch (e) {
+      setExp({ state: "error", message: errorText(e) });
+    }
+  };
+
   const exportZip = async () => {
     try {
       const defaultPath = await api.defaultDiagnosticsFileName();
@@ -51,7 +67,10 @@ export default function Diagnostica({ onBack }: Props) {
         defaultPath,
         filters: [{ name: "Archivio zip", extensions: ["zip"] }],
       });
-      if (!dest) return; // annullato
+      if (!dest) {
+        setExp({ state: "idle" }); // annullato
+        return;
+      }
       setExp({ state: "saving" });
       const result = await api.exportDiagnostics(dest);
       setExp({ state: "done", result });
@@ -82,14 +101,48 @@ export default function Diagnostica({ onBack }: Props) {
           </button>
           <button
             type="button"
-            onClick={exportZip}
-            disabled={exp.state === "saving"}
+            onClick={askExport}
+            disabled={exp.state === "saving" || exp.state === "confirm"}
             className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
             {exp.state === "saving" ? "Salvataggio…" : "Esporta diagnostica"}
           </button>
         </div>
       </div>
+
+      {exp.state === "confirm" && (
+        <section className="rounded-lg border border-neutral-300 p-4 text-sm dark:border-neutral-600">
+          <h2 className="font-medium">Cosa contiene la diagnostica</h2>
+          <ul className="mt-2 space-y-1">
+            {exp.entries.map((e) => (
+              <li key={e.name}>
+                <code className="text-xs">{e.name}</code>
+                <span className="text-neutral-600 dark:text-neutral-400"> — {e.description}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-neutral-600 dark:text-neutral-400">
+            Mai video, audio, immagini dello schermo o movimenti del mouse. Il nome utente diventa «~» e i
+            nomi dei progetti diventano «progetto-1», «progetto-2»…
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={exportZip}
+              className="rounded-md bg-red-600 px-3 py-1.5 font-medium text-white hover:bg-red-700"
+            >
+              Salva…
+            </button>
+            <button
+              type="button"
+              onClick={() => setExp({ state: "idle" })}
+              className="rounded-md border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800"
+            >
+              Annulla
+            </button>
+          </div>
+        </section>
+      )}
 
       <ExportStatus exp={exp} />
 

@@ -172,7 +172,7 @@ export default function ProvaZoom({ onBack }: Props) {
             web) e fai <strong>5 clic</strong> in punti diversi. FrameNote calcolerà gli zoom da sola.
           </p>
           <p className="mt-2 text-sm text-neutral-500">
-            Viene registrato lo schermo principale, senza audio. Le finestre di FrameNote non compaiono nel video.
+            Viene registrato lo schermo principale, senza audio. Le finestre di FrameNote, le notifiche e i password manager non compaiono nel video.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="button" className={primary} onClick={start} disabled={phase.kind === "starting"}>

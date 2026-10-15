@@ -32,6 +32,9 @@ bytemuck = { version = "1", features = ["derive"] }
 pollster = "0.4"
 time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 screencapturekit = "11"
 

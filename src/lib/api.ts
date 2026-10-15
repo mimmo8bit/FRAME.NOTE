@@ -138,11 +138,36 @@ export interface ExportProgress {
   total: number;
 }
 
+export interface PreviewEntry {
+  name: string;
+  description: string;
+}
+
+export type CheckLevel = "ok" | "warn" | "unknown";
+
+export interface Check {
+  level: CheckLevel;
+  detail: string;
+}
+
+export interface PrivacyReport {
+  network: Check;
+  diskEncryption: Check;
+  projectsDir: string;
+  cloudSync: Check;
+  otherUsers: Check;
+  signature: Check;
+  captureExclusions: string[];
+}
+
 export const api = {
   diagnosticInfo: () => invoke<DiagnosticInfo>("diagnostic_info"),
   startupProblems: () => invoke<string[]>("startup_problems"),
   defaultDiagnosticsFileName: () => invoke<string>("default_diagnostics_file_name"),
   exportDiagnostics: (dest: string) => invoke<ExportResult>("export_diagnostics", { dest }),
+  diagnosticsPreview: () => invoke<PreviewEntry[]>("diagnostics_preview"),
+  privacyReport: () => invoke<PrivacyReport>("privacy_report"),
+  openFilevaultSettings: () => invoke<void>("open_filevault_settings"),
   captureStatus: () => invoke<CaptureStatus>("capture_status"),
   requestScreenPermission: () => invoke<boolean>("request_screen_permission"),
   openScreenPermissionSettings: () => invoke<void>("open_screen_permission_settings"),

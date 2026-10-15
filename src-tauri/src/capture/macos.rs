@@ -5,7 +5,9 @@
 //!   (se il writer è indietro il frame viene scartato e contato);
 //! - writer: ritmo costante con il `Pacer`, scrittura verso FFmpeg;
 //! - poller: posizione e pulsanti del mouse a 120 Hz → `events.jsonl`;
-//! - monitor: CPU di FrameNote + FFmpeg una volta al secondo.
+//! - monitor: CPU di FrameNote + FFmpeg una volta al secondo;
+//! - esclusioni: ogni 2 s controlla se si sono aperte app da escludere
+//!   (notifiche, password manager) e aggiorna il filtro della cattura.
 //!
 //! Frame ed eventi usano lo stesso orologio (host time di macOS).
 
@@ -31,6 +33,7 @@ use crate::input_events::{
     macos as mouse, point_in_rects, ButtonTracker, DisplayGeometry, EventKind, EventWriter,
     InputEvent, Rect, EVENTS_FILE,
 };
+use crate::privacy::is_capture_excluded;
 
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
@@ -127,6 +130,7 @@ pub struct ActiveRecording {
     writer: Option<JoinHandle<Result<WriterStats, String>>>,
     poller: Option<JoinHandle<Result<(), String>>>,
     monitor: Option<JoinHandle<CpuStats>>,
+    exclusions: Option<JoinHandle<()>>,
     started: Instant,
     pub geometry: DisplayGeometry,
     pub width: u32,
@@ -196,10 +200,10 @@ pub fn start(project_dir: &Path, ffmpeg: &Path, encoder: &str) -> Result<ActiveR
         "registrazione: schermo scelto"
     );
 
-    // Le finestre di FrameNote non finiscono nel video.
+    // Le finestre di FrameNote, le notifiche e i password manager non finiscono nel video.
     let me = std::process::id() as i32;
-    let apps = content.applications();
-    let own: Vec<&SCRunningApplication> = apps.iter().filter(|a| a.process_id() == me).collect();
+    let excluded = excluded_apps(&content, me);
+    let excluded_pids = pids(&excluded);
     // I clic sulle finestre di FrameNote (che nel video non si vedono, per
     // esempio su «Ferma») non devono generare zoom.
     let own_windows: Vec<Rect> = content
@@ -220,13 +224,10 @@ pub fn start(project_dir: &Path, ffmpeg: &Path, encoder: &str) -> Result<ActiveR
         .collect();
     tracing::info!(
         finestre = own_windows.len(),
-        "registrazione: finestre di FrameNote escluse"
+        app_escluse = excluded.len(),
+        "registrazione: finestre di FrameNote e app riservate escluse"
     );
-    let filter = SCContentFilter::create()
-        .with_display(display)
-        .with_excluding_applications(&own, &[])
-        .build()
-        .map_err(|e| format!("filtro di cattura non valido ({e})"))?;
+    let filter = build_filter(display, &excluded)?;
     let config = SCStreamConfiguration::new()
         .with_width(width)
         .with_height(height)
@@ -368,6 +369,13 @@ pub fn start(project_dir: &Path, ffmpeg: &Path, encoder: &str) -> Result<ActiveR
             .spawn(move || cpu_monitor(stop))
             .map_err(|e| e.to_string())?
     };
+    let exclusions = {
+        let (stream, shared, display_id) = (stream.clone(), shared.clone(), display.display_id());
+        std::thread::Builder::new()
+            .name("framenote-esclusioni".into())
+            .spawn(move || exclusion_loop(&stream, display_id, me, excluded_pids, &shared))
+            .map_err(|e| e.to_string())?
+    };
 
     Ok(ActiveRecording {
         stream,
@@ -377,12 +385,82 @@ pub fn start(project_dir: &Path, ffmpeg: &Path, encoder: &str) -> Result<ActiveR
         writer: Some(writer),
         poller: Some(poller),
         monitor: Some(monitor),
+        exclusions: Some(exclusions),
         started: Instant::now(),
         geometry,
         width,
         height,
         encoder: encoder.to_string(),
     })
+}
+
+/// App da tenere fuori dal video: FrameNote stessa, notifiche, password manager.
+fn excluded_apps(content: &SCShareableContent, me: i32) -> Vec<SCRunningApplication> {
+    content
+        .applications()
+        .into_iter()
+        .filter(|a| a.process_id() == me || is_capture_excluded(&a.bundle_identifier()))
+        .collect()
+}
+
+fn pids(apps: &[SCRunningApplication]) -> Vec<i32> {
+    let mut p: Vec<i32> = apps.iter().map(|a| a.process_id()).collect();
+    p.sort_unstable();
+    p
+}
+
+fn build_filter(
+    display: &SCDisplay,
+    apps: &[SCRunningApplication],
+) -> Result<SCContentFilter, String> {
+    let refs: Vec<&SCRunningApplication> = apps.iter().collect();
+    SCContentFilter::create()
+        .with_display(display)
+        .with_excluding_applications(&refs, &[])
+        .build()
+        .map_err(|e| format!("filtro di cattura non valido ({e})"))
+}
+
+/// Un password manager aperto durante la registrazione viene escluso entro 2 s.
+fn exclusion_loop(
+    stream: &SCStream,
+    display_id: u32,
+    me: i32,
+    mut current: Vec<i32>,
+    shared: &Shared,
+) {
+    loop {
+        for _ in 0..10 {
+            if shared.stopping.load(Ordering::SeqCst) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        let Ok(content) = SCShareableContent::get() else {
+            continue;
+        };
+        let apps = excluded_apps(&content, me);
+        let now = pids(&apps);
+        if now == current {
+            continue;
+        }
+        let displays = content.displays();
+        let Some(display) = displays.iter().find(|d| d.display_id() == display_id) else {
+            continue;
+        };
+        match build_filter(display, &apps)
+            .and_then(|f| stream.update_content_filter(&f).map_err(|e| e.to_string()))
+        {
+            Ok(()) => {
+                tracing::info!(
+                    app_escluse = apps.len(),
+                    "registrazione: esclusioni aggiornate"
+                );
+                current = now;
+            }
+            Err(e) => tracing::warn!("esclusioni non aggiornate: {e}"),
+        }
+    }
 }
 
 fn writer_loop(
@@ -583,6 +661,9 @@ impl ActiveRecording {
         self.shared
             .stop_ns
             .store(host_time_ns(&CMClock::host_time_clock()), Ordering::SeqCst);
+        if let Some(h) = self.exclusions.take() {
+            let _ = h.join();
+        }
         if let Err(e) = self.stream.stop_capture() {
             tracing::warn!("stop della cattura: {e}");
         }
